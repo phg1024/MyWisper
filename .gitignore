@@ -1,0 +1,8 @@
+.DS_Store
+venv/
+models/
+history.json
+__pycache__/
+macos/.build/
+macos/build/
+macos/Vendor/

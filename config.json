@@ -1,0 +1,13 @@
+{
+    "hotkey": "alt_r",
+    "trigger_mode": "auto",
+    "play_sound": true,
+    "auto_paste": true,
+    "restore_clipboard": false,
+    "language": "auto",
+    "model_path": "models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/model.int8.onnx",
+    "tokens_path": "models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/tokens.txt",
+    "num_threads": 4,
+    "min_audio_duration": 0.25,
+    "silence_threshold": 0.001
+}
