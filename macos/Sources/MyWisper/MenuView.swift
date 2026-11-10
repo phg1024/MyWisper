@@ -1,0 +1,185 @@
+import SwiftUI
+
+struct MenuView: View {
+    @EnvironmentObject var model: AppModel
+    @EnvironmentObject var prefs: Preferences
+    @EnvironmentObject var history: HistoryStore
+    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            RecordButton()
+            if model.needsPermissions { permissionBanner }
+            recent
+            Divider()
+            footer
+        }
+        .padding(14)
+        .frame(width: 340)
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            AppGlyph(size: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("MyWisper").font(.system(size: 14, weight: .semibold))
+                Text(model.statusLine)
+                    .font(.system(size: 11))
+                    .foregroundStyle(statusIsWarning ? Color.orange : Color.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+                .help(model.statusLine)
+        }
+    }
+
+    private var statusIsWarning: Bool {
+        if case .failed = model.modelState { return true }
+        return model.modelState == .ready && !model.hotkeyActive && !model.isRecording
+    }
+
+    private var statusColor: Color {
+        if model.isRecording { return .red }
+        if model.pending > 0 || model.modelState == .loading { return .yellow }
+        return statusIsWarning ? .orange : .green
+    }
+
+    private var permissionBanner: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("还差一步：授权后才能用", systemImage: "hand.raised.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.orange)
+            if model.micStatus != .authorized {
+                PermissionRow(title: "麦克风", detail: "录下你说的话，只在本机识别", granted: false) {
+                    model.requestMicrophone()
+                }
+            }
+            if !model.accessibilityGranted {
+                PermissionRow(title: "辅助功能", detail: "监听快捷键，把文字粘贴到光标处", granted: false) {
+                    model.requestAccessibility()
+                }
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.orange.opacity(0.1)))
+    }
+
+    private var recent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                SectionLabel("最近")
+                Spacer()
+                if !history.entries.isEmpty {
+                    Button("全部记录") { show(window: "history") }
+                        .buttonStyle(.link)
+                        .font(.system(size: 11))
+                }
+            }
+            if history.entries.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "text.bubble").font(.system(size: 20)).foregroundStyle(.tertiary)
+                    Text("还没有记录。在任意输入框里\(prefs.trigger == .toggle ? "按" : "按住") \(prefs.hotkey.keycap) 说话试试。")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(history.entries.prefix(5)) { entry in
+                        HistoryRow(entry: entry)
+                    }
+                }
+                .padding(.horizontal, -8)
+            }
+        }
+    }
+
+    private var footer: some View {
+        HStack(spacing: 14) {
+            Button {
+                openSettings()
+                NSApp.activate()
+            } label: {
+                Label("设置", systemImage: "gearshape")
+            }
+            .keyboardShortcut(",")
+            Spacer()
+            Button("退出") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+        }
+        .buttonStyle(.borderless)
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+    }
+
+    private func show(window id: String) {
+        openWindow(id: id)
+        NSApp.activate()
+    }
+}
+
+struct RecordButton: View {
+    @EnvironmentObject var model: AppModel
+    @EnvironmentObject var prefs: Preferences
+    @State private var hovering = false
+
+    var body: some View {
+        Button { model.toggleFromUI() } label: {
+            HStack(spacing: 10) {
+                Image(systemName: model.isRecording ? "stop.fill" : "mic.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .frame(width: 18)
+                Text(model.isRecording ? "结束并输入" : "开始听写")
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer()
+                if model.isRecording {
+                    Waveform(levels: Array(model.levels.suffix(14)), color: .white)
+                        .frame(width: 54, height: 18)
+                    ElapsedText(start: model.recordingStart)
+                        .font(.system(size: 12, weight: .medium).monospacedDigit())
+                } else if model.modelState == .loading {
+                    ProgressView().controlSize(.small).tint(.white)
+                } else {
+                    Keycap(text: prefs.hotkey.keycap, onColor: true)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .frame(height: 46)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(model.isRecording ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(Brand.gradient)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(hovering ? 0.08 : 0)))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .disabled(model.modelState != .ready && !model.isRecording)
+        .animation(.easeOut(duration: 0.15), value: model.isRecording)
+    }
+}
+
+struct MenuBarLabel: View {
+    @ObservedObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: model.isRecording ? "mic.fill" : (model.pending > 0 ? "ellipsis.circle" : "waveform"))
+            .onAppear {
+                // First launch, or permissions lost (e.g. after a rebuild): show the setup window.
+                if !model.prefs.onboarded || model.needsPermissions {
+                    openWindow(id: "welcome")
+                    NSApp.activate()
+                }
+            }
+    }
+}
