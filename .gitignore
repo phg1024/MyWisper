@@ -1,9 +1,6 @@
 .DS_Store
-venv/
+.build/
+build/
+Vendor/
+.signing/
 models/
-history.json
-__pycache__/
-macos/.build/
-macos/build/
-macos/Vendor/
-macos/.signing/

@@ -1,18 +1,14 @@
 #!/bin/bash
 # Builds MyWisper.app (release) into build/. `./build.sh install` also copies it to ~/Applications.
-# Needs Xcode (or the command line tools) and the Python app's venv and model next door, which supply
-# sherpa-onnx's C library and the SenseVoice model.
+# Needs Xcode (or the command line tools), plus sherpa-onnx's C library in Vendor/ and the SenseVoice
+# model in models/: ./fetch-deps.sh downloads both.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-WHEEL=../venv/lib/python3.9/site-packages/sherpa_onnx
-MODEL=../models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
-[ -f "$WHEEL/lib/libsherpa-onnx-c-api.dylib" ] || { echo "missing $WHEEL (run ../run.sh once to create the venv)"; exit 1; }
-[ -f "$MODEL/model.int8.onnx" ] || { echo "missing $MODEL/model.int8.onnx"; exit 1; }
-
-mkdir -p Vendor/sherpa-onnx/lib Vendor/sherpa-onnx/include
-cp -p "$WHEEL/lib/libsherpa-onnx-c-api.dylib" "$WHEEL/lib/libonnxruntime.dylib" Vendor/sherpa-onnx/lib/
-cp -Rp "$WHEEL/include/sherpa-onnx" Vendor/sherpa-onnx/include/
+MODEL=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+[ -f Vendor/sherpa-onnx/lib/libsherpa-onnx-c-api.dylib ] && [ -f Vendor/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h ] \
+  || { echo "missing Vendor/sherpa-onnx: run ./fetch-deps.sh"; exit 1; }
+[ -f "$MODEL/model.int8.onnx" ] || { echo "missing $MODEL/model.int8.onnx: run ./fetch-deps.sh"; exit 1; }
 
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/MyWisper"
