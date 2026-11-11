@@ -131,7 +131,14 @@ private struct PermissionSettings: View {
     }
 }
 
-private struct AboutSettings: View {
+/// Opened in the browser only when clicked; the app itself never connects anywhere.
+enum Links {
+    static let repository = URL(string: "https://github.com/phg1024/MyWisper")!
+    static let sponsors = URL(string: "https://github.com/sponsors/phg1024")!
+    static let coffee = URL(string: "https://buymeacoffee.com/phg1024")!
+}
+
+struct AboutSettings: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var history: HistoryStore
 
@@ -159,6 +166,22 @@ private struct AboutSettings: View {
                 }
             }
             .font(.system(size: 12))
+            HStack(spacing: 10) {
+                Link(destination: Links.repository) {
+                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                Link(destination: Links.sponsors) {
+                    Label { Text("Sponsor") } icon: { Image(systemName: "heart.fill").foregroundStyle(.pink) }
+                }
+                Link(destination: Links.coffee) {
+                    Label("Buy Me a Coffee", systemImage: "cup.and.saucer.fill")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            Text(t("MyWisper 免费开源。觉得好用的话，欢迎请我喝杯咖啡。", "MyWisper is free and open source. If it helps you, a coffee is always appreciated."))
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
             Text(t("SenseVoice-Small 模型来自 FunAudioLLM（阿里巴巴通义实验室），遵循 FunASR 模型开源协议；sherpa-onnx（Apache-2.0）、ONNX Runtime（MIT）。详见 App 包内的 THIRD_PARTY_NOTICES.md。", "SenseVoice-Small by FunAudioLLM (Tongyi Lab, Alibaba Group), under the FunASR Model Open Source License; sherpa-onnx (Apache-2.0), ONNX Runtime (MIT). See THIRD_PARTY_NOTICES.md inside the app."))
                 .font(.system(size: 10))
                 .multilineTextAlignment(.center)
@@ -167,7 +190,7 @@ private struct AboutSettings: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .frame(height: 360)
+        .frame(height: 440)
     }
 
     private var modelText: String {

@@ -106,6 +106,9 @@ enum CommandLineTools {
         render(SettingsView().environmentObject(settingsModel).environmentObject(settingsModel.prefs).environmentObject(history)
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("settings.png"), scheme: .light)
+        render(AboutSettings().environmentObject(settingsModel).environmentObject(history).frame(width: 520)
+               .background(Color(nsColor: .windowBackgroundColor)),
+               to: dir.appendingPathComponent("about.png"), scheme: .light)
         render(WelcomeView().environmentObject(AppModel.preview(permissions: false, history: empty)).environmentObject(Preferences())
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("welcome.png"), scheme: .light)

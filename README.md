@@ -1,60 +1,91 @@
-# MyWisper
+<p align="center">
+  <img src="docs/images/about-en.png" width="420" alt="MyWisper">
+</p>
 
-macOS 菜单栏语音输入：按住快捷键说话，松开后文字出现在光标处。识别用 SenseVoice-Small（int8，经 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 的 C API），中、英、粤、日、韩都行，全部在本机完成，不联网。SwiftUI 写的原生 App，需要 macOS 15 和 Apple 芯片。
+<h1 align="center">MyWisper</h1>
 
-## 构建和安装
+<p align="center">
+  <b>Hold a key, speak, and the text appears at your cursor. 100% on your Mac.</b><br>
+  English · <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/phg1024/MyWisper/releases/latest"><img alt="Download" src="https://img.shields.io/github/v/release/phg1024/MyWisper?label=download&color=6a5cf5"></a>
+  <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple">
+  <img alt="Apple silicon" src="https://img.shields.io/badge/Apple%20silicon-required-black">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://github.com/sponsors/phg1024"><img alt="Sponsor" src="https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors"></a>
+  <a href="https://buymeacoffee.com/phg1024"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black"></a>
+</p>
+
+MyWisper is a menu bar dictation app for macOS. Hold a shortcut (right Option by default), talk, let go — the text is typed into whatever app you're in. Speech recognition runs entirely on your Mac with [SenseVoice-Small](https://github.com/FunAudioLLM/SenseVoice) through [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): no account, no cloud, no network access at all.
+
+- **Chinese, English, Cantonese, Japanese, Korean**, and Chinese–English mixed in one sentence, detected automatically.
+- **Fast**: a few seconds of speech is transcribed in about 50 ms on Apple silicon.
+- **Private**: the app contains no networking code; audio stays in memory and is discarded after recognition.
+- **Native**: SwiftUI, a small floating HUD with a live waveform, history, English and Chinese interface.
+
+<p align="center">
+  <img src="docs/images/menu-light-en.png" width="340" alt="Menu bar window">
+  &nbsp;
+  <img src="docs/images/settings-en.png" width="420" alt="Settings">
+</p>
+<p align="center">
+  <img src="docs/images/hud-recording-en.png" width="560" alt="Recording HUD">
+</p>
+
+## Install
+
+1. Download `MyWisper-x.y.z.dmg` from [Releases](https://github.com/phg1024/MyWisper/releases/latest), open it and drag **MyWisper** into **Applications**.
+2. **First launch.** MyWisper isn't signed with an Apple Developer ID yet, so macOS stops it the first time ("Apple could not verify…"). Click **Done**, then open **System Settings › Privacy & Security**, scroll down to *Security* and click **Open Anyway** next to MyWisper. You only do this once.
+   <br>Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/MyWisper.app`
+3. The welcome window asks for two permissions:
+   - **Microphone**: to hear you.
+   - **Accessibility**: for the global shortcut and to paste the text at your cursor (it sends ⌘V).
+4. Optional: Settings › General › **Open at login**.
+
+Requires macOS 15 or later on Apple silicon (M1 or newer).
+
+## Use
+
+- **Adaptive mode** (default): hold the key while you talk and release to finish, or tap it once to start and tap again when done.
+- Other keys: left Option, right Command, left or right Control, or Fn. Easiest: Settings › General › **Record Key…** and press the key you want. (For Fn, set System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing".)
+- The microphone opens about 0.12 s after the key goes down, so shortcuts like ⌃C or ⌥E never trigger it; pressing another key while holding the shortcut discards that recording. **esc** cancels.
+- Without Accessibility permission, the text is copied to the clipboard instead.
+- Recent results are in the menu bar window (click to copy); the full, searchable history is under **All history**.
+- Interface language: Settings › General › **界面语言 / Language** (System, 简体中文, English).
+
+## Privacy
+
+- No network code: neither the app nor the bundled libraries import any networking APIs (sockets, DNS, URLSession). You can check: `nm -u /Applications/MyWisper.app/Contents/MacOS/MyWisper` and `lsof -i -a -p $(pgrep -x MyWisper)`.
+- Recognition works identically with networking blocked by a sandbox; the model ships inside the app.
+- Dictated text is written to the clipboard as *this Mac only*, so Universal Clipboard doesn't send it to your other devices. The previous clipboard is restored after pasting (can be turned off).
+- Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared) and your preferences. Audio is never written to disk.
+- The GitHub / Sponsor / Buy Me a Coffee buttons in About open your browser only when clicked.
+
+## Build from source
+
+Needs Xcode (or the Command Line Tools) on an Apple silicon Mac.
 
 ```bash
-./fetch-deps.sh        # 第一次：下载 sherpa-onnx 2.0.1 的动态库到 Vendor/，SenseVoice 模型到 models/（约 1GB）
-./build.sh install     # 生成 build/MyWisper.app，并复制到 ~/Applications
+git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
+./fetch-deps.sh        # sherpa-onnx 2.0.1 libraries into Vendor/, SenseVoice model into models/ (~1 GB)
+./build.sh install     # builds build/MyWisper.app and copies it to ~/Applications
 ```
 
-需要 Xcode（或 Command Line Tools）。模型只有 `model.int8.onnx`（约 230MB）会打包进 App；`Vendor/`、`models/` 都不进 git。
+The first build creates a self-signed code signing certificate in `.signing/` (not in git). macOS ties the Microphone and Accessibility permissions to that certificate, so later builds keep them. Don't delete it.
 
-第一次打开会出现欢迎窗口，按提示授权：
-- **麦克风**：录音。
-- **辅助功能**：全局快捷键，以及模拟 ⌘V 把文字粘贴到光标处。
+Other tools: `MyWisper --transcribe a.wav [--language zh]` transcribes files; `MyWisper --snapshot <dir> [en|zh]` renders the UI to PNGs. `./release.sh 1.0.0` makes a release DMG (notarized when a Developer ID certificate is available).
 
-App 用自签名证书签名（第一次构建时生成在 `.signing/`，不进 git）。证书不变，系统就认为是同一个程序，**重新构建后麦克风和辅助功能权限都还在**。别删 `.signing/`，删了会生成新证书，就得到 系统设置 › 隐私与安全性 › 辅助功能 里删掉旧的 MyWisper 再重新授权一次。
+## Support
 
-## 发布（Developer ID + 公证）
+MyWisper is free. If it saves you some typing, you can [sponsor on GitHub](https://github.com/sponsors/phg1024) or [buy me a coffee](https://buymeacoffee.com/phg1024). Bug reports and ideas are welcome in [Issues](https://github.com/phg1024/MyWisper/issues).
 
-```bash
-./release.sh 1.0.0     # Developer ID 签名、开强化运行时、公证并装订 App 和 DMG，最后打印 gh release 命令
-```
+## Credits and license
 
-需要 Apple Developer Program 会员。钥匙串里要有「Developer ID Application」证书，公证凭据存在钥匙串 profile `mywisper-notary` 里（`xcrun notarytool store-credentials`）。脚本只出包和自检，不会自己发布。第三方许可声明在 `ThirdParty/`，会打包进 App。
+MyWisper is released under the [MIT License](LICENSE).
 
-## 用法
+- Speech model: **SenseVoice-Small** by FunAudioLLM (Tongyi Lab, Alibaba Group), under the [FunASR Model Open Source License 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE); ONNX conversion by the sherpa-onnx project.
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0) and [ONNX Runtime](https://github.com/microsoft/onnxruntime) (MIT).
 
-- 默认快捷键是**右 Option**，用法「自适应」：按住说话、松开结束；或者短按一下开始，说完再按一下结束。
-- 可以换成左 Option、右 Command、左/右 Control 或 Fn，最省事是在 设置 › 通用 点「按键设置…」后直接按那个键（用 Fn 要先在 系统设置 › 键盘 里把「按下 🌐 键时」设成「无操作」）。按下后约 0.12 秒才开麦，所以 ⌃C、⌥E 这类组合键不会碰到麦克风。
-- 按住快捷键时又按了别的键（比如 ⌥E、⌘C），这次录音自动作废，所以不会妨碍正常的快捷键；录音时按 esc 取消。
-- 屏幕底部的提示条显示录音波形、时长和识别结果。没有辅助功能权限时，文字只复制到剪贴板。
-- 菜单栏图标里有开始按钮和最近 5 条记录（点一下复制）；完整历史在「全部记录」里，可以搜索、删除。
-- 界面有简体中文和英文：设置 › 通用 › 「界面语言 / Language」，默认跟随系统，切换后立即生效（系统自带的菜单、权限弹窗等下次启动生效）。界面文字都写在代码里，形如 `t("中文", "English")`。
-- 历史记录存在 `~/Library/Application Support/MyWisper/history.json`（只有本人可读），可以在设置里关掉或清空。
-
-## 命令行
-
-```bash
-MyWisper.app/Contents/MacOS/MyWisper --transcribe a.wav b.wav [--language zh]   # 测识别
-MyWisper.app/Contents/MacOS/MyWisper --snapshot /tmp/shots                    # 把各个界面渲染成 PNG
-```
-
-## 历史
-
-最早是 Python 版（rumps + pynput + sherpa-onnx 的 Python 包），2026-11-10 换成这个原生版，Python 版随后删除（在 git 历史里，提交 86d0c7c）。它的问题原生版都没有：菜单栏模式起不来、热键状态和实际录音状态对不上、转写期间说的话会丢、本地 HTTP 接口没有认证还开了 `Access-Control-Allow-Origin: *`。原生版没有任何网络接口。
-
-「识别语言」效果很弱：SenseVoice 会自己判断语言，强制指定基本不改变结果（Python 和 C 接口都测过），所以放在设置里，叫「语言提示」。
-
-## 隐私：数据不出这台 Mac
-
-2026-11-10 检查过：
-
-- 代码里没有任何网络调用；App 本体和两个动态库（sherpa-onnx、onnxruntime）都没有导入 socket、connect、getaddrinfo、URLSession 之类的网络函数，也不链接 CFNetwork/Network 框架。运行中的进程没有任何网络连接（`lsof -i`）。
-- 用 `sandbox-exec` 完全断网后识别照常（五种语言的测试音频结果和联网时一样），模型就在 App 包里。
-- 写剪贴板用 `prepareForNewContents(with: .currentHostOnly)`，识别结果不会经「通用剪贴板」同步到 iPhone 或别的 Mac。
-- 留在本机的数据：历史记录 `~/Library/Application Support/MyWisper/history.json`（权限 600，可在设置里关掉保存或清空），偏好设置 `defaults read com.peihongguo.MyWisper`。录音只在内存里，识别完就丢掉，不写文件。历史记录会跟着 Time Machine 备份走。
-
-复查方法：`nm -u` 看导入符号、`lsof -nP -a -p $(pgrep -x MyWisper) -i` 看连接。
+Full texts are in [ThirdParty/](ThirdParty/) and inside the app.
