@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/phg1024/MyWisper/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/phg1024/MyWisper?label=%E4%B8%8B%E8%BD%BD&color=6a5cf5"></a>
+  <a href="https://github.com/phg1024/MyWisper/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/phg1024/MyWisper?label=%E4%B8%8B%E8%BD%BD&color=6a5cf5&cacheSeconds=3600"></a>
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple">
   <img alt="Apple 芯片" src="https://img.shields.io/badge/Apple%20%E8%8A%AF%E7%89%87-%E5%BF%85%E9%9C%80-black">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
