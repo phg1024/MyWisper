@@ -38,3 +38,14 @@ MyWisper.app/Contents/MacOS/MyWisper --snapshot /tmp/shots                    # 
 Python 版（`../main.py`）的这些问题在这里都不存在：菜单栏模式起不来（rumps 的 `clear()` 报错后退回终端模式）、热键状态和实际录音状态对不上、转写期间说的话会丢、本地 HTTP 接口没有认证还开了 `Access-Control-Allow-Origin: *`（任何网页都能读听写历史、远程开麦）。原生版没有 HTTP 接口。
 
 「识别语言」在两个版本里效果都很弱：SenseVoice 会自己判断语言，强制指定基本不改变结果（2026-11-10 用 Python 和 C 接口都测过），所以原生版把它放在设置里，叫「语言提示」。
+
+## 隐私：数据不出这台 Mac
+
+2026-11-10 检查过：
+
+- 代码里没有任何网络调用；App 本体和两个动态库（sherpa-onnx、onnxruntime）都没有导入 socket、connect、getaddrinfo、URLSession 之类的网络函数，也不链接 CFNetwork/Network 框架。运行中的进程没有任何网络连接（`lsof -i`）。
+- 用 `sandbox-exec` 完全断网后识别照常（五种语言的测试音频结果和联网时一样），模型就在 App 包里。
+- 写剪贴板用 `prepareForNewContents(with: .currentHostOnly)`，识别结果不会经「通用剪贴板」同步到 iPhone 或别的 Mac。
+- 留在本机的数据：历史记录 `~/Library/Application Support/MyWisper/history.json`（权限 600，可在设置里关掉保存或清空），偏好设置 `defaults read com.peihongguo.MyWisper`。录音只在内存里，识别完就丢掉，不写文件。历史记录会跟着 Time Machine 备份走。
+
+复查方法：`nm -u` 看导入符号、`lsof -nP -a -p $(pgrep -x MyWisper) -i` 看连接。

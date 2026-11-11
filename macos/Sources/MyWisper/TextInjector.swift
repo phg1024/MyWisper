@@ -12,7 +12,7 @@ enum TextInjector {
     static func paste(_ text: String, restoreClipboard: Bool) -> Bool {
         let pasteboard = NSPasteboard.general
         let saved = restoreClipboard ? snapshot(pasteboard) : nil
-        pasteboard.clearContents()
+        clearForThisMacOnly(pasteboard)
         pasteboard.setString(text, forType: .string)
         if restoreClipboard {
             // Clipboard managers skip transient items, so the dictated text doesn't pile up there.
@@ -27,7 +27,7 @@ enum TextInjector {
             // Give slow apps (Electron, terminals) time to read the clipboard before it changes back.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 guard pasteboard.changeCount == ourChange else { return }   // the user copied something meanwhile
-                pasteboard.clearContents()
+                clearForThisMacOnly(pasteboard)
                 if !saved.isEmpty { pasteboard.writeObjects(saved) }
             }
         }
@@ -35,8 +35,14 @@ enum TextInjector {
     }
 
     static func copy(_ text: String) {
-        NSPasteboard.general.clearContents()
+        clearForThisMacOnly(.general)
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    /// Like clearContents(), but what we write next stays on this Mac: Universal Clipboard
+    /// does not hand it to the user's iPhone or other Macs.
+    private static func clearForThisMacOnly(_ pasteboard: NSPasteboard) {
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
     }
 
     private static func snapshot(_ pasteboard: NSPasteboard) -> [NSPasteboardItem] {
