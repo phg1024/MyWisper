@@ -51,16 +51,16 @@ struct MenuView: View {
 
     private var permissionBanner: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("还差一步：授权后才能用", systemImage: "hand.raised.fill")
+            Label(t("还差一步：授权后才能用", "One more step: grant access to start"), systemImage: "hand.raised.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.orange)
             if model.micStatus != .authorized {
-                PermissionRow(title: "麦克风", detail: "录下你说的话，只在本机识别", granted: false) {
+                PermissionRow(title: t("麦克风", "Microphone"), detail: t("录下你说的话，只在本机识别", "Records what you say; recognized on this Mac only"), granted: false) {
                     model.requestMicrophone()
                 }
             }
             if !model.accessibilityGranted {
-                PermissionRow(title: "辅助功能", detail: "监听快捷键，把文字粘贴到光标处", granted: false) {
+                PermissionRow(title: t("辅助功能", "Accessibility"), detail: t("监听快捷键，把文字粘贴到光标处", "Listens for the shortcut and pastes text at the cursor"), granted: false) {
                     model.requestAccessibility()
                 }
             }
@@ -72,10 +72,10 @@ struct MenuView: View {
     private var recent: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                SectionLabel("最近")
+                SectionLabel(t("最近", "Recent"))
                 Spacer()
                 if !history.entries.isEmpty {
-                    Button("全部记录") { show(window: "history") }
+                    Button(t("全部记录", "All history")) { show(window: "history") }
                         .buttonStyle(.link)
                         .font(.system(size: 11))
                 }
@@ -83,7 +83,7 @@ struct MenuView: View {
             if history.entries.isEmpty {
                 VStack(spacing: 6) {
                     Image(systemName: "text.bubble").font(.system(size: 20)).foregroundStyle(.tertiary)
-                    Text("还没有记录。在任意输入框里\(prefs.trigger == .toggle ? "按" : "按住") \(prefs.hotkey.keycap) 说话试试。")
+                    Text(t("还没有记录。在任意输入框里\(prefs.trigger == .toggle ? "按" : "按住") \(prefs.hotkey.keycap) 说话试试。", "Nothing yet. In any text field, \(prefs.trigger == .toggle ? "press" : "hold") \(prefs.hotkey.keycap) and say something."))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -107,11 +107,11 @@ struct MenuView: View {
                 openSettings()
                 NSApp.activate()
             } label: {
-                Label("设置", systemImage: "gearshape")
+                Label(t("设置", "Settings"), systemImage: "gearshape")
             }
             .keyboardShortcut(",")
             Spacer()
-            Button("退出") { NSApp.terminate(nil) }
+            Button(t("退出", "Quit")) { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
         }
         .buttonStyle(.borderless)
@@ -136,7 +136,7 @@ struct RecordButton: View {
                 Image(systemName: model.isRecording ? "stop.fill" : "mic.fill")
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: 18)
-                Text(model.isRecording ? "结束并输入" : "开始听写")
+                Text(model.isRecording ? t("结束并输入", "Finish and insert") : t("开始听写", "Start dictation"))
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
                 if model.isRecording {

@@ -104,18 +104,19 @@ struct HistoryRow: View {
         .contentShape(Rectangle())
         .onHover { hovering = $0 }
         .onTapGesture { copy() }
-        .help("点击复制")
+        .help(t("点击复制", "Click to copy"))
         .contextMenu {
-            Button("复制") { copy() }
-            if let onDelete { Button("删除", role: .destructive, action: onDelete) }
+            Button(t("复制", "Copy")) { copy() }
+            if let onDelete { Button(t("删除", "Delete"), role: .destructive, action: onDelete) }
         }
     }
 
     private var caption: String {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        let when = Date().timeIntervalSince(entry.date) < 60 ? "刚才" : formatter.localizedString(for: entry.date, relativeTo: Date())
-        return "\(when) · \(String(format: "%.1f", entry.duration)) 秒"
+        formatter.locale = Preferences.shared.locale
+        let when = Date().timeIntervalSince(entry.date) < 60 ? t("刚才", "just now") : formatter.localizedString(for: entry.date, relativeTo: Date())
+        return t("\(when) · \(String(format: "%.1f", entry.duration)) 秒", "\(when) · \(String(format: "%.1f", entry.duration)) s")
     }
 
     private func copy() {
@@ -143,7 +144,7 @@ struct PermissionRow: View {
             }
             Spacer(minLength: 8)
             if !granted {
-                Button("授权", action: action).controlSize(.small)
+                Button(t("授权", "Grant"), action: action).controlSize(.small)
             }
         }
     }

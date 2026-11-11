@@ -13,8 +13,8 @@ enum ASRError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .modelMissing(let path): "找不到模型文件：\(path)"
-        case .loadFailed: "SenseVoice 模型加载失败"
+        case .modelMissing(let path): t("找不到模型文件：\(path)", "Model file not found: \(path)")
+        case .loadFailed: t("SenseVoice 模型加载失败", "Could not load the SenseVoice model")
         }
     }
 }

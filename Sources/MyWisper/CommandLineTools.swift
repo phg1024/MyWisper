@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Headless modes, used by build.sh and for testing without the menu bar:
 ///   MyWisper --transcribe a.wav [b.wav ...] [--language zh]
-///   MyWisper --snapshot <dir>        renders the main views to PNG
+///   MyWisper --snapshot <dir> [en|zh]  renders the main views to PNG
 ///   MyWisper --make-icon <dir.iconset>
 enum CommandLineTools {
     static func run(_ args: [String]) -> Bool {
@@ -12,6 +12,7 @@ enum CommandLineTools {
         case "--transcribe":
             transcribe(Array(args.dropFirst(2)))
         case "--snapshot" where args.count > 2:
+            if args.count > 3 { Preferences.languageOverride = UILanguage(rawValue: args[3]) }
             MainActor.assumeIsolated { snapshot(into: URL(fileURLWithPath: args[2])) }
         case "--make-icon" where args.count > 2:
             MainActor.assumeIsolated { makeIcon(URL(fileURLWithPath: args[2])) }

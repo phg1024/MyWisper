@@ -10,10 +10,11 @@
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key><string>1</string>
-    <key>CFBundleDevelopmentRegion</key><string>zh_CN</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string><string>zh-Hans</string></array>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSMicrophoneUsageDescription</key><string>MyWisper 需要用麦克风录下你说的话，在本机识别成文字。音频不会离开这台 Mac。</string>
+    <key>NSMicrophoneUsageDescription</key><string>MyWisper records what you say and turns it into text on this Mac. Audio never leaves this Mac.</string>
 </dict>
 </plist>

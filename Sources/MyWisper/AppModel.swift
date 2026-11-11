@@ -181,7 +181,7 @@ final class AppModel: ObservableObject {
     func beginHotkeyCapture() {
         captureNote = nil
         guard hotkeys.isRunning else {
-            captureNote = "快捷键监听还没启动：先在「权限」里授权辅助功能"
+            captureNote = t("快捷键监听还没启动：先在「权限」里授权辅助功能", "The shortcut listener isn’t running yet: grant Accessibility under Permissions first")
             return
         }
         cancel(silently: true)
@@ -189,7 +189,7 @@ final class AppModel: ObservableObject {
         hotkeys.onCapture = { [weak self] type, code, flags in
             MainActor.assumeIsolated { self?.captured(type, code, flags) ?? false }
         }
-        let timeout = DispatchWorkItem { [weak self] in self?.endHotkeyCapture(note: "没等到按键，再试一次") }
+        let timeout = DispatchWorkItem { [weak self] in self?.endHotkeyCapture(note: t("没等到按键，再试一次", "No key pressed. Try again")) }
         captureTimeout = timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: timeout)
     }
@@ -203,18 +203,18 @@ final class AppModel: ObservableObject {
 
     private func captured(_ type: CGEventType, _ code: Int64, _ flags: CGEventFlags) -> Bool {
         if type == .keyDown {
-            if code == 53 { endHotkeyCapture() } else { captureNote = "要用单独的修饰键：Option、Control、右 Command 或 Fn" }
+            if code == 53 { endHotkeyCapture() } else { captureNote = t("要用单独的修饰键：Option、Control、右 Command 或 Fn", "Use a modifier key on its own: Option, Control, right Command or Fn") }
             return true
         }
         guard let key = Hotkey(keyCode: code) else {
             if flags.rawValue & Hotkey.deviceSideMasks != 0 || flags.contains(.maskShift) || flags.contains(.maskCommand) {
-                captureNote = "这个键不行：Shift 和左 Command 太常用，请换一个"
+                captureNote = t("这个键不行：Shift 和左 Command 太常用，请换一个", "Not that one: Shift and left Command are used too often. Pick another key")
             }
             return true
         }
         guard key.isHeld(in: flags) else { return true }   // the release
         prefs.hotkey = key
-        endHotkeyCapture(note: "已设为 \(key.title)")
+        endHotkeyCapture(note: t("已设为 \(key.title)", "Set to \(key.title)"))
         return true
     }
 
@@ -235,7 +235,7 @@ final class AppModel: ObservableObject {
         guard !isRecording else { return false }
         guard micStatus == .authorized else {
             requestMicrophone()
-            hud.flash(.message("需要麦克风权限", symbol: "mic.slash"))
+            hud.flash(.message(t("需要麦克风权限", "Microphone access needed"), symbol: "mic.slash"))
             return false
         }
         do {
@@ -266,7 +266,7 @@ final class AppModel: ObservableObject {
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
         guard duration >= 0.3, rms >= 0.001 else {
             if prefs.sounds { Sounds.error() }
-            hud.flash(.message(duration < 0.3 ? "录音太短" : "没有听到声音", symbol: "waveform.slash"))
+            hud.flash(.message(duration < 0.3 ? t("录音太短", "Too short") : t("没有听到声音", "Didn’t hear anything"), symbol: "waveform.slash"))
             return
         }
         if prefs.sounds { Sounds.stop() }
@@ -287,7 +287,7 @@ final class AppModel: ObservableObject {
         pendingStart = nil
         guard isRecording else { return }
         _ = finishRecording()
-        if silently { hud.hide() } else { hud.flash(.message("已取消", symbol: "xmark.circle")) }
+        if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
     }
 
     private func finishRecording() -> [Float] {
@@ -311,7 +311,7 @@ final class AppModel: ObservableObject {
         var text = transcript.text
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
-            if !isRecording { hud.flash(.message("没有识别出文字", symbol: "questionmark.circle")) }
+            if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
             return
         }
         history.add(transcript, text: text)
@@ -323,14 +323,14 @@ final class AppModel: ObservableObject {
     // MARK: Menu text
 
     var statusLine: String {
-        if isRecording { return latched ? "正在听… 再按 \(prefs.hotkey.keycap) 结束" : "正在听…" }
-        if pending > 0 { return "识别中…" }
+        if isRecording { return latched ? t("正在听… 再按 \(prefs.hotkey.keycap) 结束", "Listening… press \(prefs.hotkey.keycap) again to finish") : t("正在听…", "Listening…") }
+        if pending > 0 { return t("识别中…", "Transcribing…") }
         switch modelState {
-        case .loading: return "正在加载模型…"
+        case .loading: return t("正在加载模型…", "Loading model…")
         case .failed(let message): return message
         case .ready:
-            if !hotkeyActive { return "快捷键还不能用：需要辅助功能权限" }
-            return prefs.trigger == .toggle ? "按 \(prefs.hotkey.keycap) 开始说话" : "按住 \(prefs.hotkey.keycap) 说话"
+            if !hotkeyActive { return t("快捷键还不能用：需要辅助功能权限", "Shortcut not working yet: needs Accessibility access") }
+            return prefs.trigger == .toggle ? t("按 \(prefs.hotkey.keycap) 开始说话", "Press \(prefs.hotkey.keycap) to start talking") : t("按住 \(prefs.hotkey.keycap) 说话", "Hold \(prefs.hotkey.keycap) and talk")
         }
     }
 

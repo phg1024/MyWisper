@@ -137,7 +137,7 @@ struct HUDView: View {
         case .transcribing:
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small).tint(.white)
-                Text("识别中…").font(.system(size: 13, weight: .medium))
+                Text(t("识别中…", "Transcribing…")).font(.system(size: 13, weight: .medium))
             }
         case .done(let text, let pasted):
             HStack(spacing: 10) {
@@ -151,7 +151,7 @@ struct HUDView: View {
                     .frame(maxWidth: 420, alignment: .leading)
                     .fixedSize(horizontal: true, vertical: false)
                 if !pasted {
-                    Text("已复制，⌘V 粘贴").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).fixedSize()
+                    Text(t("已复制，⌘V 粘贴", "Copied. Press ⌘V to paste")).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).fixedSize()
                 }
             }
         case .message(let text, let symbol):
@@ -163,9 +163,9 @@ struct HUDView: View {
     }
 
     private var hint: String {
-        if model.latched || prefs.trigger == .toggle { return "再按 \(prefs.hotkey.keycap) 结束 · esc 取消" }
-        if prefs.trigger == .pushToTalk { return "松开结束 · esc 取消" }
-        return "松开结束 · esc 取消"
+        if model.latched || prefs.trigger == .toggle { return t("再按 \(prefs.hotkey.keycap) 结束 · esc 取消", "Press \(prefs.hotkey.keycap) again to finish · esc to cancel") }
+        if prefs.trigger == .pushToTalk { return t("松开结束 · esc 取消", "Release to finish · esc to cancel") }
+        return t("松开结束 · esc 取消", "Release to finish · esc to cancel")
     }
 }
 

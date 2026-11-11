@@ -3,7 +3,7 @@ import AVFoundation
 enum RecorderError: LocalizedError {
     case noInput
 
-    var errorDescription: String? { "没有可用的麦克风" }
+    var errorDescription: String? { t("没有可用的麦克风", "No microphone available") }
 }
 
 /// Captures the default input device and converts it to 16 kHz mono float samples for SenseVoice.

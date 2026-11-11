@@ -21,6 +21,7 @@ struct MyWisperApp: App {
                 .environmentObject(model)
                 .environmentObject(prefs)
                 .environmentObject(history)
+                .id(prefs.uiLanguage)   // rebuild every view, so all text switches language at once
         } label: {
             MenuBarLabel(model: model)
         }
@@ -31,18 +32,20 @@ struct MyWisperApp: App {
                 .environmentObject(model)
                 .environmentObject(prefs)
                 .environmentObject(history)
+                .id(prefs.uiLanguage)
         }
 
-        Window("历史记录", id: "history") {
-            HistoryWindow().environmentObject(history)
+        Window(t("历史记录", "History"), id: "history") {
+            HistoryWindow().environmentObject(history).id(prefs.uiLanguage)
         }
         .defaultSize(width: 520, height: 600)
         .defaultLaunchBehavior(.suppressed)
 
-        Window("欢迎", id: "welcome") {
+        Window(t("欢迎", "Welcome"), id: "welcome") {
             WelcomeView()
                 .environmentObject(model)
                 .environmentObject(prefs)
+                .id(prefs.uiLanguage)
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)

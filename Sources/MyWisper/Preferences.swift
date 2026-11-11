@@ -9,22 +9,22 @@ enum Hotkey: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .rightOption: "右 Option ⌥"
-        case .leftOption: "左 Option ⌥"
-        case .rightCommand: "右 Command ⌘"
-        case .rightControl: "右 Control ⌃"
-        case .leftControl: "左 Control ⌃"
+        case .rightOption: t("右 Option ⌥", "Right Option ⌥")
+        case .leftOption: t("左 Option ⌥", "Left Option ⌥")
+        case .rightCommand: t("右 Command ⌘", "Right Command ⌘")
+        case .rightControl: t("右 Control ⌃", "Right Control ⌃")
+        case .leftControl: t("左 Control ⌃", "Left Control ⌃")
         case .fn: "Fn 🌐"
         }
     }
 
     var keycap: String {
         switch self {
-        case .rightOption: "右⌥"
-        case .leftOption: "左⌥"
-        case .rightCommand: "右⌘"
-        case .rightControl: "右⌃"
-        case .leftControl: "左⌃"
+        case .rightOption: t("右⌥", "right ⌥")
+        case .leftOption: t("左⌥", "left ⌥")
+        case .rightCommand: t("右⌘", "right ⌘")
+        case .rightControl: t("右⌃", "right ⌃")
+        case .leftControl: t("左⌃", "left ⌃")
         case .fn: "fn"
         }
     }
@@ -84,17 +84,17 @@ enum TriggerMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .auto: "自适应"
-        case .pushToTalk: "按住说话"
-        case .toggle: "单击开始 / 结束"
+        case .auto: t("自适应", "Adaptive")
+        case .pushToTalk: t("按住说话", "Push to talk")
+        case .toggle: t("单击开始 / 结束", "Press to start / stop")
         }
     }
 
     func detail(_ key: Hotkey) -> String {
         switch self {
-        case .auto: "按住 \(key.keycap) 说话、松开结束；或者短按一下开始，说完再按一下结束。"
-        case .pushToTalk: "按住 \(key.keycap) 说话，松开就识别并输入。"
-        case .toggle: "按一下 \(key.keycap) 开始，再按一下结束。"
+        case .auto: t("按住 \(key.keycap) 说话、松开结束；或者短按一下开始，说完再按一下结束。", "Hold \(key.keycap) while you talk and release to finish, or tap it to start and tap again when you’re done.")
+        case .pushToTalk: t("按住 \(key.keycap) 说话，松开就识别并输入。", "Hold \(key.keycap) while you talk; release to transcribe and insert.")
+        case .toggle: t("按一下 \(key.keycap) 开始，再按一下结束。", "Press \(key.keycap) to start and again to finish.")
         }
     }
 }
@@ -106,25 +106,45 @@ enum Language: String, CaseIterable, Identifiable {
 
     var short: String {
         switch self {
-        case .auto: "自动"
-        case .zh: "中文"
-        case .en: "英文"
-        case .yue: "粤语"
-        case .ja: "日语"
-        case .ko: "韩语"
+        case .auto: t("自动", "Auto")
+        case .zh: t("中文", "Chinese")
+        case .en: t("英文", "English")
+        case .yue: t("粤语", "Cantonese")
+        case .ja: t("日语", "Japanese")
+        case .ko: t("韩语", "Korean")
         }
     }
 
     var title: String {
         switch self {
-        case .auto: "自动识别（中英混说也行）"
-        case .zh: "中文（普通话）"
+        case .auto: t("自动识别（中英混说也行）", "Automatic (mixed Chinese and English works)")
+        case .zh: t("中文（普通话）", "Chinese (Mandarin)")
         case .en: "English"
-        case .yue: "粤语"
-        case .ja: "日本語"
+        case .yue: t("粤语", "Cantonese")
+        case .ja: t("日本語", "日本語")
         case .ko: "한국어"
         }
     }
+}
+
+/// The language of MyWisper's own windows, menus and messages (not what it recognizes).
+enum UILanguage: String, CaseIterable, Identifiable {
+    case system, zh, en
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: t("跟随系统", "Same as system")
+        case .zh: "简体中文"
+        case .en: "English"
+        }
+    }
+}
+
+/// Picks the Chinese or English text for the current interface language.
+func t(_ zh: String, _ en: String) -> String {
+    Preferences.shared.usesEnglish ? en : zh
 }
 
 final class Preferences: ObservableObject {
@@ -140,6 +160,36 @@ final class Preferences: ObservableObject {
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
     @Published var onboarded: Bool { didSet { defaults.set(onboarded, forKey: "onboarded") } }
+    @Published var uiLanguage: UILanguage {
+        didSet {
+            defaults.set(uiLanguage.rawValue, forKey: "uiLanguage")
+            // System-provided text (the Settings window title, standard menus and alerts) follows
+            // AppleLanguages, which macOS reads at launch.
+            switch uiLanguage {
+            case .system: defaults.removeObject(forKey: "AppleLanguages")
+            case .zh: defaults.set(["zh-Hans"], forKey: "AppleLanguages")
+            case .en: defaults.set(["en"], forKey: "AppleLanguages")
+            }
+        }
+    }
+
+    /// For --snapshot: renders a language without touching the saved setting.
+    static var languageOverride: UILanguage?
+
+    var usesEnglish: Bool {
+        switch Self.languageOverride ?? uiLanguage {
+        case .zh: false
+        case .en: true
+        case .system: !(Self.systemLanguages.first?.hasPrefix("zh") ?? false)
+        }
+    }
+
+    var locale: Locale { Locale(identifier: usesEnglish ? "en" : "zh-Hans") }
+
+    /// The user's languages from the system, ignoring our own AppleLanguages override.
+    private static let systemLanguages: [String] =
+        UserDefaults.standard.persistentDomain(forName: UserDefaults.globalDomain)?["AppleLanguages"] as? [String]
+        ?? Locale.preferredLanguages
 
     init() {
         hotkey = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
@@ -151,5 +201,6 @@ final class Preferences: ObservableObject {
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
         onboarded = defaults.bool(forKey: "onboarded")
+        uiLanguage = UILanguage(rawValue: defaults.string(forKey: "uiLanguage") ?? "") ?? .system
     }
 }
