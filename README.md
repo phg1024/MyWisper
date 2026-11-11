@@ -17,6 +17,14 @@ macOS 菜单栏语音输入：按住快捷键说话，松开后文字出现在�
 
 App 用自签名证书签名（第一次构建时生成在 `.signing/`，不进 git）。证书不变，系统就认为是同一个程序，**重新构建后麦克风和辅助功能权限都还在**。别删 `.signing/`，删了会生成新证书，就得到 系统设置 › 隐私与安全性 › 辅助功能 里删掉旧的 MyWisper 再重新授权一次。
 
+## 发布（Developer ID + 公证）
+
+```bash
+./release.sh 1.0.0     # Developer ID 签名、开强化运行时、公证并装订 App 和 DMG，最后打印 gh release 命令
+```
+
+需要 Apple Developer Program 会员。钥匙串里要有「Developer ID Application」证书，公证凭据存在钥匙串 profile `mywisper-notary` 里（`xcrun notarytool store-credentials`）。脚本只出包和自检，不会自己发布。第三方许可声明在 `ThirdParty/`，会打包进 App。
+
 ## 用法
 
 - 默认快捷键是**右 Option**，用法「自适应」：按住说话、松开结束；或者短按一下开始，说完再按一下结束。

@@ -28,7 +28,7 @@ final class ASREngine: @unchecked Sendable {
     private var recognizer: OpaquePointer?
     private var loadError: Error?
 
-    /// The bundled model, or MYWISPER_MODEL_DIR, or the Python app's model folder (for `swift run`).
+    /// The bundled model, or MYWISPER_MODEL_DIR, or models/ in the current directory (for `swift run`).
     static func defaultModelDirectory() -> URL? {
         var candidates: [URL] = []
         if let env = ProcessInfo.processInfo.environment["MYWISPER_MODEL_DIR"] {
@@ -37,8 +37,8 @@ final class ASREngine: @unchecked Sendable {
         if let resources = Bundle.main.resourceURL {
             candidates.append(resources.appendingPathComponent("model"))
         }
-        candidates.append(FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Code/MyWisper/models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"))
+        candidates.append(URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+            .appendingPathComponent("models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"))
         return candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("model.int8.onnx").path) }
     }
 

@@ -151,10 +151,15 @@ private struct AboutSettings: View {
                 }
             }
             .font(.system(size: 12))
+            Text("SenseVoice-Small 模型来自 FunAudioLLM（阿里巴巴通义实验室），遵循 FunASR 模型开源协议；sherpa-onnx（Apache-2.0）、ONNX Runtime（MIT）。详见 App 包内的 THIRD_PARTY_NOTICES.md。")
+                .font(.system(size: 10))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: 400)
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .frame(height: 320)
+        .frame(height: 360)
     }
 
     private var modelText: String {
