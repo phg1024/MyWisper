@@ -22,7 +22,7 @@ final class HotkeyMonitor {
         self.hotkey = hotkey
     }
 
-    /// Needs Accessibility (or Input Monitoring for the listen-only fallback). Returns false until granted.
+    /// Needs Accessibility: without it macOS still creates the tap but only feeds it our own app's events.
     @discardableResult
     func start() -> Bool {
         if isRunning { return true }
@@ -31,8 +31,6 @@ final class HotkeyMonitor {
         let me = Unmanaged.passUnretained(self).toOpaque()
         let created = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
                                         eventsOfInterest: mask, callback: hotkeyTapCallback, userInfo: me)
-            ?? CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
-                                 eventsOfInterest: mask, callback: hotkeyTapCallback, userInfo: me)
         guard let created else { return false }
         tap = created
         source = CFMachPortCreateRunLoopSource(nil, created, 0)

@@ -31,10 +31,31 @@ cp "$MODEL/LICENSE" "$STAGE/Contents/Resources/model/" 2>/dev/null || true
 "$STAGE/Contents/MacOS/MyWisper" --make-icon build/.stage/AppIcon.iconset
 iconutil -c icns build/.stage/AppIcon.iconset -o "$STAGE/Contents/Resources/AppIcon.icns"
 
-# Ad-hoc signature (no developer certificate on this Mac). macOS ties privacy permissions to it,
-# so after a rebuild Accessibility has to be granted again.
-codesign --force --sign - "$STAGE/Contents/Frameworks/"*.dylib
-codesign --force --sign - --identifier com.peihongguo.MyWisper "$STAGE"
+# Signed with a self-signed certificate kept in .signing/ (made on the first build, not in git).
+# macOS ties privacy permissions to the signature's certificate, so with a stable certificate
+# Microphone and Accessibility survive rebuilds; an ad-hoc signature would change every build.
+SIGN_DIR="$PWD/.signing"
+KC="$SIGN_DIR/signing.keychain-db"
+IDENTITY="MyWisper Local Signing"
+if [ ! -f "$KC" ]; then
+  mkdir -p "$SIGN_DIR" && chmod 700 "$SIGN_DIR"
+  (
+    cd "$SIGN_DIR"
+    umask 077
+    openssl rand -hex 16 > password
+    printf '[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=%s\n[ext]\nbasicConstraints=critical,CA:false\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=critical,codeSigning\n' "$IDENTITY" > cert.cnf
+    openssl req -x509 -newkey rsa:2048 -nodes -keyout key.pem -out cert.pem -days 7300 -config cert.cnf 2>/dev/null
+    openssl pkcs12 -export -legacy -inkey key.pem -in cert.pem -out identity.p12 -passout file:password
+    security create-keychain -p "$(cat password)" "$KC"
+    security unlock-keychain -p "$(cat password)" "$KC"
+    security import identity.p12 -k "$KC" -P "$(cat password)" -T /usr/bin/codesign >/dev/null
+    security set-key-partition-list -S apple-tool:,apple: -s -k "$(cat password)" "$KC" >/dev/null
+  )
+  echo "created signing certificate in $SIGN_DIR"
+fi
+security unlock-keychain -p "$(cat "$SIGN_DIR/password")" "$KC"
+codesign --force --keychain "$KC" --sign "$IDENTITY" "$STAGE/Contents/Frameworks/"*.dylib
+codesign --force --keychain "$KC" --sign "$IDENTITY" --identifier com.peihongguo.MyWisper "$STAGE"
 
 rm -rf "$APP"
 mv "$STAGE" "$APP"

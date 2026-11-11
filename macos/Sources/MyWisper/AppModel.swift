@@ -67,7 +67,7 @@ final class AppModel: ObservableObject {
         hotkeys.onUp = { [weak self] in MainActor.assumeIsolated { self?.hotkeyUp() } }
         hotkeys.onChord = { [weak self] in MainActor.assumeIsolated { self?.hotkeyChord() } }
         hotkeys.onEscape = { [weak self] in MainActor.assumeIsolated { self?.cancel() } }
-        hotkeyActive = hotkeys.start()
+        if accessibilityGranted { hotkeyActive = hotkeys.start() }
 
         prefs.$hotkey.dropFirst().sink { [weak self] key in self?.hotkeys.hotkey = key }.store(in: &subscriptions)
         prefs.$language.dropFirst().removeDuplicates().sink { [weak self] _ in
@@ -95,8 +95,13 @@ final class AppModel: ObservableObject {
 
     func refreshPermissions() {
         micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-        accessibilityGranted = AXIsProcessTrusted()
-        if accessibilityGranted && !hotkeys.isRunning { hotkeyActive = hotkeys.start() }
+        let trusted = AXIsProcessTrusted()
+        guard trusted != accessibilityGranted || trusted != hotkeys.isRunning else { return }
+        accessibilityGranted = trusted
+        // A tap made without Accessibility only ever sees our own app's keys, so build a fresh one
+        // whenever the grant changes rather than keeping the old one.
+        hotkeys.stop()
+        hotkeyActive = trusted && hotkeys.start()
     }
 
     func requestMicrophone() {
