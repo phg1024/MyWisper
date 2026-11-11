@@ -10,6 +10,8 @@ final class HotkeyMonitor {
     /// Another key, modifier or click while the hotkey is held: the user is typing a shortcut.
     var onChord: (() -> Void)?
     var onEscape: (() -> Void)?
+    /// While set, sees every key event first; returning true swallows it for the dictation logic.
+    var onCapture: ((CGEventType, Int64, CGEventFlags) -> Bool)?
 
     private(set) var isRunning = false
     private var tap: CFMachPort?
@@ -58,12 +60,14 @@ final class HotkeyMonitor {
             break
         }
         if event.getIntegerValueField(.eventSourceUserData) == TextInjector.eventMarker { return }   // our own ⌘V
+        if let onCapture, type == .flagsChanged || type == .keyDown,
+           onCapture(type, event.getIntegerValueField(.keyboardEventKeycode), event.flags) { return }
 
         switch type {
         case .flagsChanged:
             let code = event.getIntegerValueField(.keyboardEventKeycode)
             if code == hotkey.keyCode {
-                let down = event.flags.rawValue & hotkey.heldMask != 0
+                let down = hotkey.isHeld(in: event.flags)
                 guard down != isDown else { return }
                 isDown = down
                 down ? onDown?() : onUp?()

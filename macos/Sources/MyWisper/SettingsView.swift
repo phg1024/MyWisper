@@ -23,6 +23,24 @@ private struct GeneralSettings: View {
                 Picker("快捷键", selection: $prefs.hotkey) {
                     ForEach(Hotkey.allCases) { Text($0.title).tag($0) }
                 }
+                LabeledContent {
+                    if model.capturingHotkey {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("请按一下要用的键…").foregroundStyle(.secondary)
+                            Button("取消") { model.endHotkeyCapture() }.controlSize(.small)
+                        }
+                    } else {
+                        Button("按键设置…") { model.beginHotkeyCapture() }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("直接按要用的键")
+                        if let note = model.captureNote {
+                            Text(note).font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 Picker("用法", selection: $prefs.trigger) {
                     ForEach(TriggerMode.allCases) { Text($0.title).tag($0) }
                 }
@@ -31,7 +49,7 @@ private struct GeneralSettings: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(prefs.trigger.detail(prefs.hotkey))
-                    Text("按着快捷键时又按了别的键（比如 ⌘C、⌥E），这次录音会自动作废；录音时按 esc 取消。")
+                    Text("按着快捷键时又按了别的键（比如 ⌃C、⌥E），这次录音会自动作废；录音时按 esc 取消。")
                     if prefs.hotkey == .fn {
                         Text("Fn 键默认会弹出表情或切换输入法：请在 系统设置 › 键盘 里把「按下 🌐 键时」改成「无操作」。")
                             .foregroundStyle(.orange)

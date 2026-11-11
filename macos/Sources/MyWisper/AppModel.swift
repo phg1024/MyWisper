@@ -27,10 +27,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
     @Published private(set) var accessibilityGranted = AXIsProcessTrusted()
     @Published private(set) var hotkeyActive = false
+    /// Settings is waiting for the user to press the key they want.
+    @Published private(set) var capturingHotkey = false
+    @Published private(set) var captureNote: String?
 
     static let levelCount = 28
     static let maxRecording: TimeInterval = 300
     static let holdThreshold: TimeInterval = 0.35
+    /// The microphone opens this long after the key goes down, so ⌃C or ⌥E never touches it.
+    static let armDelay: TimeInterval = 0.12
 
     private let engine = ASREngine()
     private let recorder = AudioRecorder()
@@ -40,6 +45,8 @@ final class AppModel: ObservableObject {
     private var feedback: DispatchWorkItem?
     private var pressTime = Date()
     private var pressStartedRecording = false
+    private var pendingStart: DispatchWorkItem?
+    private var captureTimeout: DispatchWorkItem?
 
     init(prefs: Preferences, history: HistoryStore) {
         self.prefs = prefs
@@ -118,21 +125,27 @@ final class AppModel: ObservableObject {
 
     private func hotkeyDown() {
         pressTime = Date()
-        switch prefs.trigger {
-        case .pushToTalk:
-            if isRecording { stop() } else { pressStartedRecording = start(latched: false) }
-        case .toggle:
-            if isRecording { stop() } else { pressStartedRecording = start(latched: true) }
-        case .auto:
-            if isRecording {
-                if latched { stop() }
-            } else {
-                pressStartedRecording = start(latched: false)
-            }
+        if isRecording {
+            if prefs.trigger != .auto || latched { stop() }
+            return
         }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingStart = nil
+            self.pressStartedRecording = self.start(latched: self.prefs.trigger == .toggle)
+        }
+        pendingStart = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.armDelay, execute: work)
     }
 
     private func hotkeyUp() {
+        if let work = pendingStart {
+            // Released before the microphone opened: a quick tap, which starts a hands-free recording.
+            work.cancel()
+            pendingStart = nil
+            if prefs.trigger != .pushToTalk { start(latched: true) }
+            return
+        }
         defer { pressStartedRecording = false }
         guard isRecording, pressStartedRecording else { return }
         switch prefs.trigger {
@@ -151,8 +164,53 @@ final class AppModel: ObservableObject {
 
     /// ⌥E, ⌘C, ⌥-click...: the key was a modifier for something else, not a dictation.
     private func hotkeyChord() {
+        pendingStart?.cancel()
+        pendingStart = nil
         if isRecording && pressStartedRecording { cancel(silently: true) }
         pressStartedRecording = false
+    }
+
+    // MARK: Choosing the key
+
+    /// Settings' "press the key" button. Goes through the same event tap, so it also proves the tap works.
+    func beginHotkeyCapture() {
+        captureNote = nil
+        guard hotkeys.isRunning else {
+            captureNote = "快捷键监听还没启动：先在「权限」里授权辅助功能"
+            return
+        }
+        cancel(silently: true)
+        capturingHotkey = true
+        hotkeys.onCapture = { [weak self] type, code, flags in
+            MainActor.assumeIsolated { self?.captured(type, code, flags) ?? false }
+        }
+        let timeout = DispatchWorkItem { [weak self] in self?.endHotkeyCapture(note: "没等到按键，再试一次") }
+        captureTimeout = timeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10, execute: timeout)
+    }
+
+    func endHotkeyCapture(note: String? = nil) {
+        captureTimeout?.cancel()
+        hotkeys.onCapture = nil
+        capturingHotkey = false
+        captureNote = note
+    }
+
+    private func captured(_ type: CGEventType, _ code: Int64, _ flags: CGEventFlags) -> Bool {
+        if type == .keyDown {
+            if code == 53 { endHotkeyCapture() } else { captureNote = "要用单独的修饰键：Option、Control、右 Command 或 Fn" }
+            return true
+        }
+        guard let key = Hotkey(keyCode: code) else {
+            if flags.rawValue & Hotkey.deviceSideMasks != 0 || flags.contains(.maskShift) || flags.contains(.maskCommand) {
+                captureNote = "这个键不行：Shift 和左 Command 太常用，请换一个"
+            }
+            return true
+        }
+        guard key.isHeld(in: flags) else { return true }   // the release
+        prefs.hotkey = key
+        endHotkeyCapture(note: "已设为 \(key.title)")
+        return true
     }
 
     // MARK: Recording
@@ -220,6 +278,8 @@ final class AppModel: ObservableObject {
     }
 
     func cancel(silently: Bool = false) {
+        pendingStart?.cancel()
+        pendingStart = nil
         guard isRecording else { return }
         _ = finishRecording()
         if silently { hud.hide() } else { hud.flash(.message("已取消", symbol: "xmark.circle")) }
