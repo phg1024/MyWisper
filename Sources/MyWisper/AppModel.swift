@@ -247,6 +247,7 @@ final class AppModel: ObservableObject {
         self.latched = latched
         isRecording = true
         recordingStart = Date()
+        if prefs.correction { Corrector.warmUp(endpoint: prefs.correctionEndpoint, model: prefs.correctionModel) }
         levels = Array(repeating: 0, count: Self.levelCount)
         // Sound and HUD wait a moment, so a ⌥E typed with the dictation key shows nothing at all.
         let work = DispatchWorkItem { [weak self] in
@@ -280,7 +281,7 @@ final class AppModel: ObservableObject {
                 var corrected: String?
                 if prefs.correction, !recognized.isEmpty {
                     corrected = try? await Corrector.correct(recognized, vocabulary: prefs.vocabulary,
-                                                             endpoint: prefs.correctionEndpoint)
+                                                             endpoint: prefs.correctionEndpoint, model: prefs.correctionModel)
                 }
                 let text = deliver(transcript, text: corrected ?? recognized)
                 if prefs.saveRecordings {

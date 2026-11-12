@@ -88,6 +88,8 @@ private struct GeneralSettings: View {
                 Toggle(t("用本机大模型纠正听错的词", "Fix misheard words with a local language model"), isOn: $prefs.correction)
                 if prefs.correction {
                     TextField(t("地址", "Endpoint"), text: $prefs.correctionEndpoint)
+                    TextField(t("模型", "Model"), text: $prefs.correctionModel,
+                              prompt: Text(t("Ollama、LM Studio 要填，比如 qwen3.5:9b", "Needed for Ollama or LM Studio, e.g. qwen3.5:9b")))
                     if !Corrector.isLoopback(prefs.correctionEndpoint) {
                         Text(t("只能用本机地址（127.0.0.1 或 localhost）。", "Only addresses on this Mac (127.0.0.1 or localhost) are allowed."))
                             .foregroundStyle(.orange)

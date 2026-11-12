@@ -50,7 +50,8 @@ enum CommandLineTools {
                     print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, text))
                     if correct {
                         let start = Date()
-                        let fixed = try await Corrector.correct(text, vocabulary: vocabulary, endpoint: Corrector.defaultEndpoint)
+                        let fixed = try await Corrector.correct(text, vocabulary: vocabulary, endpoint: ProcessInfo.processInfo.environment["MYWISPER_CORRECTION_ENDPOINT"] ?? Corrector.defaultEndpoint,
+                                                                   model: ProcessInfo.processInfo.environment["MYWISPER_CORRECTION_MODEL"] ?? "")
                         print(String(format: "  corrected in %.0f ms | %@", Date().timeIntervalSince(start) * 1000, fixed))
                     }
                 } catch {

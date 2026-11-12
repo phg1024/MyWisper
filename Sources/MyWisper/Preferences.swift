@@ -158,6 +158,7 @@ final class Preferences: ObservableObject {
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     @Published var correction: Bool { didSet { defaults.set(correction, forKey: "correction") } }
     @Published var correctionEndpoint: String { didSet { defaults.set(correctionEndpoint, forKey: "correctionEndpoint") } }
+    @Published var correctionModel: String { didSet { defaults.set(correctionModel, forKey: "correctionModel") } }
     @Published var autoPaste: Bool { didSet { defaults.set(autoPaste, forKey: "autoPaste") } }
     @Published var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
     @Published var dropTrailingPeriod: Bool { didSet { defaults.set(dropTrailingPeriod, forKey: "dropTrailingPeriod") } }
@@ -203,6 +204,7 @@ final class Preferences: ObservableObject {
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         correction = defaults.bool(forKey: "correction")
         correctionEndpoint = defaults.string(forKey: "correctionEndpoint") ?? Corrector.defaultEndpoint
+        correctionModel = defaults.string(forKey: "correctionModel") ?? ""
         autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false
