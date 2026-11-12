@@ -97,4 +97,45 @@ enum AudioFile {
         if let error { throw error }
         return Array(UnsafeBufferPointer(start: out.floatChannelData![0], count: Int(out.frameLength)))
     }
+
+    /// 16-bit PCM WAV at 16 kHz mono.
+    static func wav(_ samples: [Float]) -> Data {
+        let rate = UInt32(ASREngine.sampleRate)
+        var data = Data()
+        func put<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
+        data.append(contentsOf: Array("RIFF".utf8)); put(UInt32(36 + samples.count * 2))
+        data.append(contentsOf: Array("WAVEfmt ".utf8)); put(UInt32(16)); put(UInt16(1)); put(UInt16(1))
+        put(rate); put(rate * 2); put(UInt16(2)); put(UInt16(16))
+        data.append(contentsOf: Array("data".utf8)); put(UInt32(samples.count * 2))
+        for sample in samples { put(Int16(max(-1, min(1, sample)) * Float(Int16.max))) }
+        return data
+    }
+}
+
+/// Optional copies of dictations, for comparing recognizers on real speech: each one is a WAV plus a
+/// JSON file with what SenseVoice heard, in ~/Library/Application Support/MyWisper/Recordings
+/// (owner-only). Off by default; nothing here ever leaves the Mac.
+enum RecordingArchive {
+    static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("MyWisper/Recordings")
+
+    static func save(_ samples: [Float], recognized: String, typed: String, language: Language) {
+        DispatchQueue.global(qos: .utility).async {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd_HHmmss"
+            let base = directory.appendingPathComponent(formatter.string(from: Date()))
+            let info: [String: Any] = ["sensevoice": recognized, "typed": typed, "language": language.rawValue,
+                                       "duration": Double(samples.count) / Double(ASREngine.sampleRate)]
+            do {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                        attributes: [.posixPermissions: 0o700])
+                try AudioFile.wav(samples).write(to: base.appendingPathExtension("wav"))
+                try JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted, .sortedKeys])
+                    .write(to: base.appendingPathExtension("json"))
+            } catch {
+                NSLog("MyWisper: could not save recording: \(error)")
+            }
+        }
+    }
 }

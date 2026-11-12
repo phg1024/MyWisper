@@ -159,6 +159,7 @@ final class Preferences: ObservableObject {
     @Published var dropTrailingPeriod: Bool { didSet { defaults.set(dropTrailingPeriod, forKey: "dropTrailingPeriod") } }
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
+    @Published var saveRecordings: Bool { didSet { defaults.set(saveRecordings, forKey: "saveRecordings") } }
     @Published var onboarded: Bool { didSet { defaults.set(onboarded, forKey: "onboarded") } }
     @Published var uiLanguage: UILanguage {
         didSet {
@@ -200,6 +201,7 @@ final class Preferences: ObservableObject {
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
+        saveRecordings = defaults.bool(forKey: "saveRecordings")
         onboarded = defaults.bool(forKey: "onboarded")
         uiLanguage = UILanguage(rawValue: defaults.string(forKey: "uiLanguage") ?? "") ?? .system
     }

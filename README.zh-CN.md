@@ -60,7 +60,7 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 - 没有联网代码：App 本体和打包的库都没有导入任何网络接口（socket、域名解析、URLSession）。可以自己查：`nm -u /Applications/MyWisper.app/Contents/MacOS/MyWisper`，以及 `lsof -i -a -p $(pgrep -x MyWisper)`。
 - 用沙箱禁掉网络后识别结果完全一样，模型就在 App 里。
 - 识别出的文字写进剪贴板时标成「仅本机」，不会经「通用剪贴板」同步到你的其他设备。粘贴后会恢复原来的剪贴板（可以关掉）。
-- 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）和偏好设置。录音从不写到磁盘。
+- 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）和偏好设置。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（用 `tools/compare_asr.py` 对比识别引擎时用，存在历史记录旁边的 `Recordings/` 里）。
 - 「关于」页里的 GitHub、Sponsor、Buy Me a Coffee 按钮，只有你点了才会用浏览器打开。
 
 ## 从源码构建

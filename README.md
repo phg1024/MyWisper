@@ -60,7 +60,7 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 - No network code: neither the app nor the bundled libraries import any networking APIs (sockets, DNS, URLSession). You can check: `nm -u /Applications/MyWisper.app/Contents/MacOS/MyWisper` and `lsof -i -a -p $(pgrep -x MyWisper)`.
 - Recognition works identically with networking blocked by a sandbox; the model ships inside the app.
 - Dictated text is written to the clipboard as *this Mac only*, so Universal Clipboard doesn't send it to your other devices. The previous clipboard is restored after pasting (can be turned off).
-- Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared) and your preferences. Audio is never written to disk.
+- Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared) and your preferences. Audio is never written to disk, unless you turn on Settings › General › **Save recordings** (used to compare recognizers with `tools/compare_asr.py`; kept in `Recordings/` next to the history).
 - The GitHub / Sponsor / Buy Me a Coffee buttons in About open your browser only when clicked.
 
 ## Build from source

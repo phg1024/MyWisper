@@ -92,6 +92,21 @@ private struct GeneralSettings: View {
                 Toggle(t("提示音", "Sounds"), isOn: $prefs.sounds)
                 Toggle(t("登录时自动启动", "Open at login"), isOn: Binding(get: { model.launchAtLogin }, set: { model.launchAtLogin = $0 }))
                 Toggle(t("保存历史记录", "Keep history"), isOn: $prefs.saveHistory)
+                Toggle(isOn: $prefs.saveRecordings) {
+                    Text(t("保存录音", "Save recordings"))
+                    Text(t("用来在真实录音上对比识别引擎。只存在本机，不会上传。", "For comparing recognizers on real speech. Kept on this Mac only."))
+                }
+                if prefs.saveRecordings {
+                    HStack {
+                        Text(t("录音", "Recordings")).foregroundStyle(.secondary)
+                        Spacer()
+                        Button(t("在访达中显示", "Show in Finder")) {
+                            try? FileManager.default.createDirectory(at: RecordingArchive.directory, withIntermediateDirectories: true,
+                                                                     attributes: [.posixPermissions: 0o700])
+                            NSWorkspace.shared.activateFileViewerSelecting([RecordingArchive.directory])
+                        }
+                    }
+                }
                 HStack {
                     Text(t("历史记录", "History")).foregroundStyle(.secondary)
                     Spacer()

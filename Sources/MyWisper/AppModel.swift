@@ -275,7 +275,11 @@ final class AppModel: ObservableObject {
         Task {
             defer { pending -= 1 }
             do {
-                deliver(try await engine.transcribe(samples))
+                let transcript = try await engine.transcribe(samples)
+                let text = deliver(transcript)
+                if prefs.saveRecordings {
+                    RecordingArchive.save(samples, recognized: transcript.text, typed: text, language: prefs.language)
+                }
             } catch {
                 if !isRecording { hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle")) }
             }
@@ -307,17 +311,20 @@ final class AppModel: ObservableObject {
         if Date().timeIntervalSince(recordingStart) > Self.maxRecording { stop() }
     }
 
-    private func deliver(_ transcript: Transcript) {
+    /// Types or copies the text and returns it.
+    @discardableResult
+    private func deliver(_ transcript: Transcript) -> String {
         var text = RepeatedEnding.fix(transcript.text)
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
-            return
+            return text
         }
         history.add(transcript, text: text)
         let pasted = prefs.autoPaste && TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard)
         if !pasted { TextInjector.copy(text) }
         if !isRecording { hud.flash(.done(text, pasted: pasted)) }
+        return text
     }
 
     // MARK: Menu text
