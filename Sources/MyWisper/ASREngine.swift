@@ -31,6 +31,7 @@ final class ASREngine: @unchecked Sendable {
     private var recognizer: OpaquePointer?
     private var whisper: OpaquePointer?
     private var language = Language.auto
+    private var vocabulary = ""
     private var loadError: Error?
 
     /// The bundled model, or MYWISPER_MODEL_DIR, or models/ in the current directory (for `swift run`).
@@ -89,6 +90,11 @@ final class ASREngine: @unchecked Sendable {
         }
     }
 
+    /// Words Whisper should prefer (SenseVoice has no prompt).
+    func setVocabulary(_ words: String) {
+        queue.async { self.vocabulary = words }
+    }
+
     func transcribe(_ samples: [Float]) async throws -> Transcript {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
@@ -137,7 +143,7 @@ final class ASREngine: @unchecked Sendable {
         let code = language == .auto ? "auto" : language.rawValue
         // A punctuated Mandarin prompt nudges Whisper towards simplified characters and punctuation.
         let prompt = ProcessInfo.processInfo.environment["MYWISPER_WHISPER_PROMPT"]
-            ?? ([.auto, .zh].contains(language) ? "以下是普通话的句子，有时夹杂英文。" : "")
+            ?? (([.auto, .zh].contains(language) ? "以下是普通话的句子，有时夹杂英文。" : "") + vocabulary)
         var text = ""
         code.withCString { lang in
             prompt.withCString { prompt in

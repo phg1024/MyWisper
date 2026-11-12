@@ -30,6 +30,9 @@ enum CommandLineTools {
             recognizer = .whisper
             files.remove(at: i)
         }
+        let correct = files.contains("--correct")
+        files.removeAll { $0 == "--correct" }
+        let vocabulary = ProcessInfo.processInfo.environment["MYWISPER_VOCABULARY"] ?? ""
         if let i = files.firstIndex(of: "--language"), i + 1 < files.count {
             language = Language(rawValue: files[i + 1]) ?? .auto
             files.removeSubrange(i...(i + 1))
@@ -38,6 +41,7 @@ enum CommandLineTools {
         let loaded = DispatchSemaphore(value: 0)
         var failure: Error?
         let start = Date()
+        engine.setVocabulary(vocabulary)
         engine.load(recognizer, language: language) { failure = $0; loaded.signal() }
         loaded.wait()
         if let failure { print("load failed: \(failure.localizedDescription)"); exit(1) }
@@ -48,7 +52,13 @@ enum CommandLineTools {
                 do {
                     let samples = try AudioFile.load16kMono(URL(fileURLWithPath: file))
                     let t = try await engine.transcribe(samples)
-                    print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, RepeatedEnding.fix(t.text)))
+                    let text = RepeatedEnding.fix(t.text)
+                    print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, text))
+                    if correct {
+                        let start = Date()
+                        let fixed = try await Corrector.correct(text, vocabulary: vocabulary, endpoint: Corrector.defaultEndpoint)
+                        print(String(format: "  corrected in %.0f ms | %@", Date().timeIntervalSince(start) * 1000, fixed))
+                    }
                 } catch {
                     print("\(file): \(error.localizedDescription)")
                 }

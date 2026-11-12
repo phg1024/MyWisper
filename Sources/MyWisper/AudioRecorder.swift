@@ -119,15 +119,17 @@ enum RecordingArchive {
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("MyWisper/Recordings")
 
-    static func save(_ samples: [Float], recognized: String, typed: String, recognizer: Recognizer, language: Language) {
+    static func save(_ samples: [Float], recognized: String, corrected: String?, typed: String,
+                     recognizer: Recognizer, language: Language) {
         DispatchQueue.global(qos: .utility).async {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "yyyy-MM-dd_HHmmss"
             let base = directory.appendingPathComponent(formatter.string(from: Date()))
-            let info: [String: Any] = ["recognizer": recognizer.rawValue, "recognized": recognized, "typed": typed,
+            var info: [String: Any] = ["recognizer": recognizer.rawValue, "recognized": recognized, "typed": typed,
                                        "language": language.rawValue,
                                        "duration": Double(samples.count) / Double(ASREngine.sampleRate)]
+            if let corrected { info["corrected"] = corrected }
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                         attributes: [.posixPermissions: 0o700])

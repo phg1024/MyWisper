@@ -74,11 +74,32 @@ private struct GeneralSettings: View {
                 Picker(t("语言提示", "Language hint"), selection: $prefs.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
                 }
+                TextField(t("常用词", "Vocabulary"), text: $prefs.vocabulary,
+                          prompt: Text(t("比如 GitHub, Expedia, 万豪 Bonvoy", "e.g. GitHub, Expedia, Marriott Bonvoy")))
                 Toggle(t("去掉句末的句号", "Drop the final period"), isOn: $prefs.dropTrailingPeriod)
             } header: {
                 Text(t("识别", "Recognition"))
             } footer: {
-                Text(t("SenseVoice 会自己判断说的是哪种语言，这里只是提示，多数时候选「自动」就好；粤语和普通话分不清时可以指定。", "SenseVoice detects the language by itself; this is only a hint. Auto is right most of the time. Pick one if Cantonese and Mandarin get mixed up."))
+                Text(t("两个引擎都会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开：Whisper 和下面的纠错会参考它，SenseVoice 不支持。", "Both recognizers detect the language by themselves; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas. Whisper and the correction below use it; SenseVoice can’t."))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Section {
+                Toggle(t("用本机大模型纠正听错的词", "Fix misheard words with a local language model"), isOn: $prefs.correction)
+                if prefs.correction {
+                    TextField(t("地址", "Endpoint"), text: $prefs.correctionEndpoint)
+                    if !Corrector.isLoopback(prefs.correctionEndpoint) {
+                        Text(t("只能用本机地址（127.0.0.1 或 localhost）。", "Only addresses on this Mac (127.0.0.1 or localhost) are allowed."))
+                            .foregroundStyle(.orange)
+                    }
+                }
+            } header: {
+                Text(t("纠错（实验）", "Correction (experimental)"))
+            } footer: {
+                Text(t("识别完把文字交给这台 Mac 上运行的模型（OpenAI 兼容接口，比如 llama.cpp、LM Studio），按上下文改正同音字和专有名词。每句多花大约半秒；模型没开或超过 \(Int(Corrector.timeout)) 秒就直接用原来的结果。只连本机，文字不会离开这台 Mac。", "Sends the text to a model running on this Mac (an OpenAI-compatible server such as llama.cpp or LM Studio) to fix sound-alike words and names from context. Adds about half a second; if the server is off or takes more than \(Int(Corrector.timeout)) s, the text is used as recognized. Loopback only: the text never leaves this Mac."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)

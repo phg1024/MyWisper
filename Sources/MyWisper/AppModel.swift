@@ -76,6 +76,7 @@ final class AppModel: ObservableObject {
         prefs.$recognizer.dropFirst().removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { self?.loadModel() }
         }.store(in: &subscriptions)
+        prefs.$vocabulary.sink { [weak self] words in self?.engine.setVocabulary(words) }.store(in: &subscriptions)
         prefs.$saveHistory.sink { [weak self] on in self?.history.persist = on }.store(in: &subscriptions)
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -283,9 +284,15 @@ final class AppModel: ObservableObject {
             defer { pending -= 1 }
             do {
                 let transcript = try await engine.transcribe(samples)
-                let text = deliver(transcript)
+                let recognized = RepeatedEnding.fix(transcript.text)
+                var corrected: String?
+                if prefs.correction, !recognized.isEmpty {
+                    corrected = try? await Corrector.correct(recognized, vocabulary: prefs.vocabulary,
+                                                             endpoint: prefs.correctionEndpoint)
+                }
+                let text = deliver(transcript, text: corrected ?? recognized)
                 if prefs.saveRecordings {
-                    RecordingArchive.save(samples, recognized: transcript.text, typed: text,
+                    RecordingArchive.save(samples, recognized: transcript.text, corrected: corrected, typed: text,
                                           recognizer: prefs.recognizer, language: prefs.language)
                 }
             } catch {
@@ -321,8 +328,8 @@ final class AppModel: ObservableObject {
 
     /// Types or copies the text and returns it.
     @discardableResult
-    private func deliver(_ transcript: Transcript) -> String {
-        var text = RepeatedEnding.fix(transcript.text)
+    private func deliver(_ transcript: Transcript, text recognized: String) -> String {
+        var text = recognized
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
