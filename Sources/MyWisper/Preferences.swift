@@ -99,6 +99,19 @@ enum TriggerMode: String, CaseIterable, Identifiable {
     }
 }
 
+enum Recognizer: String, CaseIterable, Identifiable {
+    case senseVoice, whisper
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .senseVoice: "SenseVoice-Small"
+        case .whisper: "Whisper large-v3-turbo"
+        }
+    }
+}
+
 enum Language: String, CaseIterable, Identifiable {
     case auto, zh, en, yue, ja, ko
 
@@ -154,6 +167,7 @@ final class Preferences: ObservableObject {
     @Published var hotkey: Hotkey { didSet { defaults.set(hotkey.rawValue, forKey: "hotkey") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
+    @Published var recognizer: Recognizer { didSet { defaults.set(recognizer.rawValue, forKey: "recognizer") } }
     @Published var autoPaste: Bool { didSet { defaults.set(autoPaste, forKey: "autoPaste") } }
     @Published var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
     @Published var dropTrailingPeriod: Bool { didSet { defaults.set(dropTrailingPeriod, forKey: "dropTrailingPeriod") } }
@@ -196,6 +210,7 @@ final class Preferences: ObservableObject {
         hotkey = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
+        recognizer = Recognizer(rawValue: defaults.string(forKey: "recognizer") ?? "") ?? .senseVoice
         autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false

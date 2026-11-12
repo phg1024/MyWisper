@@ -68,6 +68,9 @@ private struct GeneralSettings: View {
             }
 
             Section {
+                Picker(t("识别引擎", "Recognizer"), selection: $prefs.recognizer) {
+                    ForEach(Recognizer.allCases) { Text($0.title).tag($0) }
+                }
                 Picker(t("语言提示", "Language hint"), selection: $prefs.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
                 }
@@ -212,7 +215,7 @@ struct AboutSettings: View {
         switch model.modelState {
         case .loading: t("加载中…", "Loading…")
         case .failed(let message): message
-        case .ready: ASREngine.defaultModelDirectory()?.lastPathComponent == "model" ? t("随 App 打包", "Bundled with the app") : (ASREngine.defaultModelDirectory()?.path ?? "")
+        case .ready: model.prefs.recognizer.title
         }
     }
 }

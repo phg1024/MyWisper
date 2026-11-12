@@ -25,6 +25,11 @@ enum CommandLineTools {
     private static func transcribe(_ args: [String]) {
         var files = args
         var language = Language.auto
+        var recognizer = Recognizer.senseVoice
+        if let i = files.firstIndex(of: "--whisper") {
+            recognizer = .whisper
+            files.remove(at: i)
+        }
         if let i = files.firstIndex(of: "--language"), i + 1 < files.count {
             language = Language(rawValue: files[i + 1]) ?? .auto
             files.removeSubrange(i...(i + 1))
@@ -33,7 +38,7 @@ enum CommandLineTools {
         let loaded = DispatchSemaphore(value: 0)
         var failure: Error?
         let start = Date()
-        engine.load(modelDirectory: ASREngine.defaultModelDirectory(), language: language) { failure = $0; loaded.signal() }
+        engine.load(recognizer, language: language) { failure = $0; loaded.signal() }
         loaded.wait()
         if let failure { print("load failed: \(failure.localizedDescription)"); exit(1) }
         print(String(format: "model loaded in %.2f s (language %@)", Date().timeIntervalSince(start), language.rawValue))
@@ -51,6 +56,7 @@ enum CommandLineTools {
             }
             done.wait()
         }
+        engine.unload()
     }
 
     // MARK: Snapshots

@@ -1,5 +1,6 @@
 import AppKit
 import CSherpaOnnx
+import CWhisper
 import Foundation
 
 struct Transcript {
@@ -15,18 +16,21 @@ enum ASRError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .modelMissing(let path): t("找不到模型文件：\(path)", "Model file not found: \(path)")
-        case .loadFailed: t("SenseVoice 模型加载失败", "Could not load the SenseVoice model")
+        case .loadFailed: t("识别模型加载失败", "Could not load the speech model")
         }
     }
 }
 
-/// SenseVoice-Small through sherpa-onnx's C API. Loading and decoding run on one serial queue,
-/// so a transcription requested while the model (re)loads simply waits for it.
+/// SenseVoice-Small through sherpa-onnx's C API, or Whisper through whisper.cpp (Metal). Loading and
+/// decoding run on one serial queue, so a transcription requested while a model (re)loads waits for it.
 final class ASREngine: @unchecked Sendable {
     static let sampleRate = 16000
+    static let whisperModelName = "ggml-large-v3-turbo-q8_0.bin"
 
     private let queue = DispatchQueue(label: "MyWisper.asr", qos: .userInitiated)
     private var recognizer: OpaquePointer?
+    private var whisper: OpaquePointer?
+    private var language = Language.auto
     private var loadError: Error?
 
     /// The bundled model, or MYWISPER_MODEL_DIR, or models/ in the current directory (for `swift run`).
@@ -43,17 +47,45 @@ final class ASREngine: @unchecked Sendable {
         return candidates.first { FileManager.default.fileExists(atPath: $0.appendingPathComponent("model.int8.onnx").path) }
     }
 
-    func load(modelDirectory: URL?, language: Language, completion: @escaping (Error?) -> Void) {
+    /// The bundled Whisper model, or MYWISPER_WHISPER_MODEL, or models/whisper/ in the current directory.
+    static func whisperModelPath() -> String? {
+        var candidates: [String] = []
+        if let env = ProcessInfo.processInfo.environment["MYWISPER_WHISPER_MODEL"] { candidates.append(env) }
+        if let resources = Bundle.main.resourceURL { candidates.append(resources.appendingPathComponent("whisper/\(whisperModelName)").path) }
+        candidates.append(FileManager.default.currentDirectoryPath + "/models/whisper/\(whisperModelName)")
+        return candidates.first { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    func load(_ engine: Recognizer, language: Language, completion: @escaping (Error?) -> Void) {
         queue.async {
             if let old = self.recognizer { SherpaOnnxDestroyOfflineRecognizer(old) }
+            if let old = self.whisper { whisper_free(old) }
             self.recognizer = nil
+            self.whisper = nil
+            self.language = language
             do {
-                self.recognizer = try Self.makeRecognizer(modelDirectory: modelDirectory, language: language)
+                switch engine {
+                case .senseVoice:
+                    self.recognizer = try Self.makeRecognizer(modelDirectory: Self.defaultModelDirectory(), language: language)
+                case .whisper:
+                    self.whisper = try Self.makeWhisper()
+                }
                 self.loadError = nil
             } catch {
                 self.loadError = error
             }
             completion(self.loadError)
+        }
+    }
+
+    /// Frees the models. Call before the process exits: ggml's Metal device crashes in its exit-time
+    /// cleanup if a Whisper context is still alive.
+    func unload() {
+        queue.sync {
+            if let old = self.recognizer { SherpaOnnxDestroyOfflineRecognizer(old) }
+            if let old = self.whisper { whisper_free(old) }
+            self.recognizer = nil
+            self.whisper = nil
         }
     }
 
@@ -66,6 +98,7 @@ final class ASREngine: @unchecked Sendable {
     }
 
     private func decode(_ samples: [Float]) throws -> Transcript {
+        if let whisper { return decodeWhisper(whisper, samples) }
         guard let recognizer else { throw loadError ?? ASRError.loadFailed }
         let start = Date()
         let stream = SherpaOnnxCreateOfflineStream(recognizer)
@@ -85,6 +118,59 @@ final class ASREngine: @unchecked Sendable {
         return Transcript(text: text,
                           duration: Double(samples.count) / Double(Self.sampleRate),
                           latency: Date().timeIntervalSince(start))
+    }
+
+    private func decodeWhisper(_ context: OpaquePointer, _ samples: [Float]) -> Transcript {
+        let start = Date()
+        var params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY)
+        params.n_threads = 4
+        params.no_context = true
+        params.no_timestamps = true
+        params.suppress_nst = true
+        params.print_progress = false
+        params.print_realtime = false
+        params.print_timestamps = false
+        params.print_special = false
+        // whisper.cpp refuses clips under a second; pad with silence.
+        let padded = samples.count >= Self.sampleRate * 11 / 10 ? samples
+            : samples + [Float](repeating: 0, count: Self.sampleRate * 11 / 10 - samples.count)
+        let code = language == .auto ? "auto" : language.rawValue
+        // A punctuated Mandarin prompt nudges Whisper towards simplified characters and punctuation.
+        let prompt = ProcessInfo.processInfo.environment["MYWISPER_WHISPER_PROMPT"]
+            ?? ([.auto, .zh].contains(language) ? "以下是普通话的句子，有时夹杂英文。" : "")
+        var text = ""
+        code.withCString { lang in
+            prompt.withCString { prompt in
+                params.language = lang
+                params.initial_prompt = prompt
+                padded.withUnsafeBufferPointer { buffer in
+                    guard whisper_full(context, params, buffer.baseAddress, Int32(buffer.count)) == 0 else { return }
+                    for i in 0..<whisper_full_n_segments(context) {
+                        if let segment = whisper_full_get_segment_text(context, i) { text += String(cString: segment) }
+                    }
+                }
+            }
+        }
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Whisper often writes Mandarin in traditional characters; this Mac's ICU converts them.
+        if language != .yue, let simplified = text.applyingTransform(StringTransform("Hant-Hans"), reverse: false) {
+            text = simplified
+        }
+        // Whisper puts ASCII punctuation after Chinese characters; use the full-width forms.
+        let fullWidth: [Character: String] = [",": "，", "?": "？", "!": "！", ":": "：", ";": "；", ".": "。"]
+        text = text.replacing(#/(\p{Han})([,?!:;.])/#) { "\($0.1)\(fullWidth[Character(String($0.2))]!)" }
+        return Transcript(text: text,
+                          duration: Double(samples.count) / Double(Self.sampleRate),
+                          latency: Date().timeIntervalSince(start))
+    }
+
+    private static func makeWhisper() throws -> OpaquePointer {
+        guard let path = whisperModelPath() else { throw ASRError.modelMissing(whisperModelName) }
+        var params = whisper_context_default_params()
+        params.use_gpu = true
+        params.flash_attn = true
+        guard let context = whisper_init_from_file_with_params(path, params) else { throw ASRError.loadFailed }
+        return context
     }
 
     private static func makeRecognizer(modelDirectory: URL?, language: Language) throws -> OpaquePointer {
