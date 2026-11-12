@@ -1,3 +1,4 @@
+import AppKit
 import CSherpaOnnx
 import Foundation
 
@@ -114,5 +115,42 @@ final class ASREngine: @unchecked Sendable {
         config.decoding_method = c("greedy_search")
         guard let recognizer = SherpaOnnxCreateOfflineRecognizer(&config) else { throw ASRError.loadFailed }
         return recognizer
+    }
+}
+
+/// SenseVoice sometimes emits the end of an English word twice: a whole-word token followed by a
+/// piece that repeats its ending ("pending" + "ending", "object" + "ject"). Such a word is removed
+/// only when the word as given is misspelled and the word without the repeat is spelled correctly,
+/// so real words ("singing", "papa") and names stay as they are. Uses the local spell checker.
+enum RepeatedEnding {
+    static func fix(_ text: String) -> String {
+        var result = text
+        let words = text.ranges(of: #/[A-Za-z]{5,}/#).reversed()
+        for range in words {
+            let word = String(text[range])
+            if let fixed = repaired(word) { result.replaceSubrange(range, with: fixed) }
+        }
+        return result
+    }
+
+    private static func repaired(_ word: String) -> String? {
+        guard !isWord(word) else { return nil }
+        let chars = Array(word)
+        // Longest repeat first: "visualualization" drops "ual", not a shorter accident.
+        for length in stride(from: chars.count / 2, through: 2, by: -1) {
+            for start in 0...(chars.count - 2 * length) {
+                guard chars[start..<start + length] == chars[start + length..<start + 2 * length] else { continue }
+                var candidate = chars
+                candidate.removeSubrange(start + length..<start + 2 * length)
+                let fixed = String(candidate)
+                if isWord(fixed) { return fixed }
+            }
+        }
+        return nil
+    }
+
+    private static func isWord(_ word: String) -> Bool {
+        NSSpellChecker.shared.checkSpelling(of: word, startingAt: 0, language: "en", wrap: false,
+                                            inSpellDocumentWithTag: 0, wordCount: nil).location == NSNotFound
     }
 }

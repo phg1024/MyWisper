@@ -308,7 +308,7 @@ final class AppModel: ObservableObject {
     }
 
     private func deliver(_ transcript: Transcript) {
-        var text = transcript.text
+        var text = RepeatedEnding.fix(transcript.text)
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }

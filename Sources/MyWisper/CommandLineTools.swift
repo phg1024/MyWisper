@@ -43,7 +43,7 @@ enum CommandLineTools {
                 do {
                     let samples = try AudioFile.load16kMono(URL(fileURLWithPath: file))
                     let t = try await engine.transcribe(samples)
-                    print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, t.text))
+                    print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, RepeatedEnding.fix(t.text)))
                 } catch {
                     print("\(file): \(error.localizedDescription)")
                 }
