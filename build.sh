@@ -13,9 +13,6 @@ MODEL=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
 [ -f Vendor/sherpa-onnx/lib/libsherpa-onnx-c-api.dylib ] && [ -f Vendor/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h ] \
   || { echo "missing Vendor/sherpa-onnx: run ./fetch-deps.sh"; exit 1; }
 [ -f "$MODEL/model.int8.onnx" ] || { echo "missing $MODEL/model.int8.onnx: run ./fetch-deps.sh"; exit 1; }
-WHISPER_MODEL=models/whisper/ggml-large-v3-turbo-q8_0.bin
-[ -f Vendor/whisper/lib/libwhisper.a ] || { echo "missing Vendor/whisper: run ./fetch-deps.sh"; exit 1; }
-[ -f "$WHISPER_MODEL" ] || { echo "missing $WHISPER_MODEL: run ./fetch-deps.sh"; exit 1; }
 
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/MyWisper"
@@ -38,8 +35,6 @@ cp ThirdParty/THIRD_PARTY_NOTICES.md ThirdParty/onnxruntime-ThirdPartyNotices.tx
 cp -c "$MODEL/model.int8.onnx" "$MODEL/tokens.txt" "$STAGE/Contents/Resources/model/" 2>/dev/null \
   || cp "$MODEL/model.int8.onnx" "$MODEL/tokens.txt" "$STAGE/Contents/Resources/model/"   # -c: APFS clone, instant
 cp "$MODEL/LICENSE" "$STAGE/Contents/Resources/model/" 2>/dev/null || true
-mkdir -p "$STAGE/Contents/Resources/whisper"
-cp -c "$WHISPER_MODEL" "$STAGE/Contents/Resources/whisper/" 2>/dev/null || cp "$WHISPER_MODEL" "$STAGE/Contents/Resources/whisper/"
 
 "$STAGE/Contents/MacOS/MyWisper" --make-icon build/.stage/AppIcon.iconset
 iconutil -c icns build/.stage/AppIcon.iconset -o "$STAGE/Contents/Resources/AppIcon.icns"

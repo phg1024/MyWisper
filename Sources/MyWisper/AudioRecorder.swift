@@ -113,20 +113,20 @@ enum AudioFile {
 }
 
 /// Optional copies of dictations, for comparing recognizers on real speech: each one is a WAV plus a
-/// JSON file with what the recognizer heard, in ~/Library/Application Support/MyWisper/Recordings
+/// JSON file with what SenseVoice heard, in ~/Library/Application Support/MyWisper/Recordings
 /// (owner-only). Off by default; nothing here ever leaves the Mac.
 enum RecordingArchive {
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("MyWisper/Recordings")
 
     static func save(_ samples: [Float], recognized: String, corrected: String?, typed: String,
-                     recognizer: Recognizer, language: Language) {
+                     language: Language) {
         DispatchQueue.global(qos: .utility).async {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "yyyy-MM-dd_HHmmss"
             let base = directory.appendingPathComponent(formatter.string(from: Date()))
-            var info: [String: Any] = ["recognizer": recognizer.rawValue, "recognized": recognized, "typed": typed,
+            var info: [String: Any] = ["recognized": recognized, "typed": typed,
                                        "language": language.rawValue,
                                        "duration": Double(samples.count) / Double(ASREngine.sampleRate)]
             if let corrected { info["corrected"] = corrected }

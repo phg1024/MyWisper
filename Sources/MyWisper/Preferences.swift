@@ -99,19 +99,6 @@ enum TriggerMode: String, CaseIterable, Identifiable {
     }
 }
 
-enum Recognizer: String, CaseIterable, Identifiable {
-    case senseVoice, whisper
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .senseVoice: "SenseVoice-Small"
-        case .whisper: "Whisper large-v3-turbo"
-        }
-    }
-}
-
 enum Language: String, CaseIterable, Identifiable {
     case auto, zh, en, yue, ja, ko
 
@@ -167,8 +154,7 @@ final class Preferences: ObservableObject {
     @Published var hotkey: Hotkey { didSet { defaults.set(hotkey.rawValue, forKey: "hotkey") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
-    @Published var recognizer: Recognizer { didSet { defaults.set(recognizer.rawValue, forKey: "recognizer") } }
-    /// Names and terms the user says often; a prompt for Whisper and the corrector.
+    /// Names and terms the user says often, for the corrector.
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     @Published var correction: Bool { didSet { defaults.set(correction, forKey: "correction") } }
     @Published var correctionEndpoint: String { didSet { defaults.set(correctionEndpoint, forKey: "correctionEndpoint") } }
@@ -214,7 +200,6 @@ final class Preferences: ObservableObject {
         hotkey = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
-        recognizer = Recognizer(rawValue: defaults.string(forKey: "recognizer") ?? "") ?? .senseVoice
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         correction = defaults.bool(forKey: "correction")
         correctionEndpoint = defaults.string(forKey: "correctionEndpoint") ?? Corrector.defaultEndpoint

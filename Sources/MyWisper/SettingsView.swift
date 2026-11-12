@@ -68,9 +68,6 @@ private struct GeneralSettings: View {
             }
 
             Section {
-                Picker(t("识别引擎", "Recognizer"), selection: $prefs.recognizer) {
-                    ForEach(Recognizer.allCases) { Text($0.title).tag($0) }
-                }
                 Picker(t("语言提示", "Language hint"), selection: $prefs.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
                 }
@@ -80,7 +77,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text(t("识别", "Recognition"))
             } footer: {
-                Text(t("两个引擎都会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开：Whisper 和下面的纠错会参考它，SenseVoice 不支持。", "Both recognizers detect the language by themselves; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas. Whisper and the correction below use it; SenseVoice can’t."))
+                Text(t("SenseVoice 会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开，下面的纠错会参考它。", "SenseVoice detects the language by itself; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas, used by the correction below."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -118,7 +115,7 @@ private struct GeneralSettings: View {
                 Toggle(t("保存历史记录", "Keep history"), isOn: $prefs.saveHistory)
                 Toggle(isOn: $prefs.saveRecordings) {
                     Text(t("保存录音", "Save recordings"))
-                    Text(t("用来在真实录音上对比识别引擎。只存在本机，不会上传。", "For comparing recognizers on real speech. Kept on this Mac only."))
+                    Text(t("用来排查识别问题。只存在本机，不会上传。", "For tracking down recognition problems. Kept on this Mac only."))
                 }
                 if prefs.saveRecordings {
                     HStack {
@@ -236,7 +233,7 @@ struct AboutSettings: View {
         switch model.modelState {
         case .loading: t("加载中…", "Loading…")
         case .failed(let message): message
-        case .ready: model.prefs.recognizer.title
+        case .ready: ASREngine.defaultModelDirectory()?.lastPathComponent == "model" ? t("随 App 打包", "Bundled with the app") : (ASREngine.defaultModelDirectory()?.path ?? "")
         }
     }
 }

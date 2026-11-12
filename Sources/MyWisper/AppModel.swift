@@ -73,10 +73,6 @@ final class AppModel: ObservableObject {
         prefs.$language.dropFirst().removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { self?.loadModel() }   // after the new value is stored
         }.store(in: &subscriptions)
-        prefs.$recognizer.dropFirst().removeDuplicates().sink { [weak self] _ in
-            DispatchQueue.main.async { self?.loadModel() }
-        }.store(in: &subscriptions)
-        prefs.$vocabulary.sink { [weak self] words in self?.engine.setVocabulary(words) }.store(in: &subscriptions)
         prefs.$saveHistory.sink { [weak self] on in self?.history.persist = on }.store(in: &subscriptions)
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -84,13 +80,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func shutDown() {
-        engine.unload()
-    }
-
     private func loadModel() {
         modelState = .loading
-        engine.load(prefs.recognizer, language: prefs.language) { [weak self] error in
+        engine.load(modelDirectory: ASREngine.defaultModelDirectory(), language: prefs.language) { [weak self] error in
             DispatchQueue.main.async {
                 self?.modelState = error.map { .failed($0.localizedDescription) } ?? .ready
             }
@@ -293,7 +285,7 @@ final class AppModel: ObservableObject {
                 let text = deliver(transcript, text: corrected ?? recognized)
                 if prefs.saveRecordings {
                     RecordingArchive.save(samples, recognized: transcript.text, corrected: corrected, typed: text,
-                                          recognizer: prefs.recognizer, language: prefs.language)
+                                          language: prefs.language)
                 }
             } catch {
                 if !isRecording { hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle")) }
