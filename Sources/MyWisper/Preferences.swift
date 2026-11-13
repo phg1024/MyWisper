@@ -164,6 +164,8 @@ final class Preferences: ObservableObject {
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
     @Published var saveRecordings: Bool { didSet { defaults.set(saveRecordings, forKey: "saveRecordings") } }
+    /// Learn from the user fixing a dictation right after it was typed.
+    @Published var learnFromEdits: Bool { didSet { defaults.set(learnFromEdits, forKey: "learnFromEdits") } }
     @Published var onboarded: Bool { didSet { defaults.set(onboarded, forKey: "onboarded") } }
     @Published var uiLanguage: UILanguage {
         didSet {
@@ -209,6 +211,7 @@ final class Preferences: ObservableObject {
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
         saveRecordings = defaults.bool(forKey: "saveRecordings")
+        learnFromEdits = defaults.object(forKey: "learnFromEdits") as? Bool ?? true
         onboarded = defaults.bool(forKey: "onboarded")
         uiLanguage = UILanguage(rawValue: defaults.string(forKey: "uiLanguage") ?? "") ?? .system
     }

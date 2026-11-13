@@ -34,9 +34,18 @@ final class HistoryStore: ObservableObject {
             .appendingPathComponent("MyWisper/history.json")
     }
 
-    func add(_ transcript: Transcript, text: String) {
-        entries.insert(HistoryEntry(date: Date(), text: text, duration: transcript.duration, latency: transcript.latency), at: 0)
+    @discardableResult
+    func add(_ transcript: Transcript, text: String) -> UUID {
+        let entry = HistoryEntry(date: Date(), text: text, duration: transcript.duration, latency: transcript.latency)
+        entries.insert(entry, at: 0)
         if entries.count > Self.limit { entries.removeLast(entries.count - Self.limit) }
+        save()
+        return entry.id
+    }
+
+    func update(_ id: UUID, text: String) {
+        guard let i = entries.firstIndex(where: { $0.id == id }), entries[i].text != text else { return }
+        entries[i].text = text
         save()
     }
 

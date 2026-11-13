@@ -36,7 +36,7 @@ struct MyWisperApp: App {
         }
 
         Window(t("历史记录", "History"), id: "history") {
-            HistoryWindow().environmentObject(history).id(prefs.uiLanguage)
+            HistoryWindow().environmentObject(history).environmentObject(model).id(prefs.uiLanguage)
         }
         .defaultSize(width: 520, height: 600)
         .defaultLaunchBehavior(.suppressed)

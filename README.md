@@ -53,6 +53,7 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 - The microphone opens about 0.12 s after the key goes down, so shortcuts like ⌃C or ⌥E never trigger it; pressing another key while holding the shortcut discards that recording. **esc** cancels.
 - Without Accessibility permission, the text is copied to the clipboard instead.
 - Recent results are in the menu bar window (click to copy); the full, searchable history is under **All history**.
+- **Learns from your fixes**: fix a word right where it was typed (within two minutes), or right-click it in All history › Correct, and MyWisper remembers it. A fix made twice is applied automatically from then on; the correction model also uses your fixes as hints. Settings › General › Learning lists what it learned.
 - Interface language: Settings › General › **界面语言 / Language** (System, 简体中文, English).
 
 ## Privacy
@@ -60,7 +61,7 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 - Nothing you say goes online. The only network access is optional: if you turn on **Correction** (Settings › General) and click **Download**, MyWisper downloads the Qwen model once from Hugging Face (pinned version, SHA-256 checked). Correction itself runs inside the app with llama.cpp. Otherwise MyWisper opens no connections at all: check with `lsof -i -a -p $(pgrep -x MyWisper)`.
 - Recognition works identically with networking blocked by a sandbox; the model ships inside the app.
 - Dictated text is written to the clipboard as *this Mac only*, so Universal Clipboard doesn't send it to your other devices. The previous clipboard is restored after pasting (can be turned off).
-- Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared) and your preferences. Audio is never written to disk, unless you turn on Settings › General › **Save recordings** (for tracking down recognition problems; kept in `Recordings/` next to the history).
+- Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared), the fixes learned from your corrections in `learned.json` next to it (only the changed words), and your preferences. Audio is never written to disk, unless you turn on Settings › General › **Save recordings** (for tracking down recognition problems; kept in `Recordings/` next to the history).
 - The GitHub / Sponsor / Buy Me a Coffee buttons in About open your browser only when clicked.
 
 ## Build from source

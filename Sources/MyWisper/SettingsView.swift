@@ -15,7 +15,9 @@ private struct GeneralSettings: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var prefs: Preferences
     @EnvironmentObject var history: HistoryStore
+    @ObservedObject private var learned = LearnedFixes.shared
     @State private var confirmClear = false
+    @State private var showLearned = false
 
     var body: some View {
         Form {
@@ -102,6 +104,24 @@ private struct GeneralSettings: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
+            Section {
+                Toggle(isOn: $prefs.learnFromEdits) {
+                    Text(t("从我的修改中学习", "Learn from my fixes"))
+                    Text(t("文字输入后两分钟内，如果你在原处改了某个词，MyWisper 会记住。", "If you fix a word in the typed text within two minutes, MyWisper remembers it."))
+                }
+                LabeledContent(t("已学到 \(learned.fixes.count) 处", "\(learned.fixes.count) learned")) {
+                    Button(t("查看…", "Show…")) { showLearned = true }
+                }
+            } header: {
+                Text(t("学习", "Learning"))
+            } footer: {
+                Text(t("也可以在 全部记录 里右键一条 › 改正。只记改动的词，不保存周围的文字；输入密码的地方不会读。", "You can also right-click an entry in All history › Correct. Only the changed words are kept, never the text around them; password fields are never read."))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             Section(t("输入", "Input")) {
                 Toggle(t("识别完自动粘贴到光标处", "Paste at the cursor when done"), isOn: $prefs.autoPaste)
                 Toggle(t("粘贴后恢复原来的剪贴板", "Restore the clipboard after pasting"), isOn: $prefs.restoreClipboard)
@@ -137,6 +157,7 @@ private struct GeneralSettings: View {
         }
         .formStyle(.grouped)
         .frame(height: 560)
+        .sheet(isPresented: $showLearned) { LearnedFixesView() }
         .confirmationDialog(t("清空全部 \(history.entries.count) 条历史记录？", "Clear all \(history.entries.count) history entries?"), isPresented: $confirmClear) {
             Button(t("清空", "Clear"), role: .destructive) { history.clear() }
         } message: {
@@ -280,7 +301,9 @@ struct AboutSettings: View {
 
 struct HistoryWindow: View {
     @EnvironmentObject var history: HistoryStore
+    @EnvironmentObject var model: AppModel
     @State private var query = ""
+    @State private var editing: HistoryEntry?
 
     var body: some View {
         let shown = query.isEmpty ? history.entries : history.entries.filter { $0.text.localizedCaseInsensitiveContains(query) }
@@ -292,7 +315,8 @@ struct HistoryWindow: View {
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(shown) { entry in
-                            HistoryRow(entry: entry, compact: false) { history.delete(entry) }
+                            HistoryRow(entry: entry, compact: false, onDelete: { history.delete(entry) },
+                                       onEdit: { editing = entry })
                         }
                     }
                     .padding(10)
@@ -301,6 +325,90 @@ struct HistoryWindow: View {
         }
         .searchable(text: $query, placement: .toolbar, prompt: t("搜索", "Search"))
         .frame(minWidth: 420, minHeight: 360)
+        .sheet(item: $editing) { entry in
+            CorrectEntrySheet(entry: entry) { model.edit(entry, to: $0) }
+        }
+    }
+}
+
+/// Fixing a dictation by hand; MyWisper remembers the changed words.
+private struct CorrectEntrySheet: View {
+    let entry: HistoryEntry
+    let onSave: (String) -> Void
+    @State private var text = ""
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(t("改正识别结果", "Correct this dictation")).font(.headline)
+            Text(t("把识别错的词改对。MyWisper 会记住改动的词，下次遇到同样的错就自动改好。", "Fix the words that came out wrong. MyWisper remembers the changed words and fixes the same mistake next time."))
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            TextEditor(text: $text)
+                .font(.system(size: 13))
+                .frame(minHeight: 100)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.3)))
+            HStack {
+                Spacer()
+                Button(t("取消", "Cancel"), role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(t("保存", "Save")) {
+                    onSave(text.trimmingCharacters(in: .whitespacesAndNewlines))
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text == entry.text)
+            }
+        }
+        .padding(16)
+        .frame(width: 440)
+        .onAppear { text = entry.text }
+    }
+}
+
+/// What MyWisper has learned from the user's fixes.
+struct LearnedFixesView: View {
+    @ObservedObject var learned = LearnedFixes.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmClear = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(t("学到的改正", "Learned fixes")).font(.headline)
+            Text(t("改过两次（或在历史记录里改过一次）的会直接替换；其余的交给纠错模型参考。", "Fixes made twice (or once in History) are applied directly; the rest are hints for the correction model."))
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if learned.fixes.isEmpty {
+                ContentUnavailableView(t("还没有学到什么", "Nothing learned yet"), systemImage: "graduationcap")
+                    .frame(height: 220)
+            } else {
+                List {
+                    ForEach(learned.fixes.sorted { $0.lastSeen > $1.lastSeen }) { fix in
+                        HStack {
+                            Text(fix.heard).foregroundStyle(.secondary)
+                            Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(.tertiary)
+                            Text(fix.meant)
+                            Spacer()
+                            Text(fix.confirmed ? t("自动替换", "applied") : t("提示", "hint"))
+                                .font(.system(size: 11)).foregroundStyle(fix.confirmed ? Color.accentColor : Color.secondary)
+                            Button { learned.delete(fix) } label: { Image(systemName: "xmark.circle.fill") }
+                                .buttonStyle(.borderless).foregroundStyle(.tertiary)
+                                .help(t("忘掉这条", "Forget this one"))
+                        }
+                    }
+                }
+                .frame(height: 260)
+            }
+            HStack {
+                Button(t("全部忘掉…", "Forget all…")) { confirmClear = true }.disabled(learned.fixes.isEmpty)
+                Spacer()
+                Button(t("完成", "Done")) { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
+        .frame(width: 460)
+        .confirmationDialog(t("忘掉全部 \(learned.fixes.count) 条改正？", "Forget all \(learned.fixes.count) learned fixes?"), isPresented: $confirmClear) {
+            Button(t("全部忘掉", "Forget all"), role: .destructive) { learned.clear() }
+        }
     }
 }
 

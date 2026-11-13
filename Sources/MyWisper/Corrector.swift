@@ -163,10 +163,11 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
 
     // MARK: Correction
 
-    func correct(_ text: String, vocabulary: String) async throws -> String {
+    /// `learned`: the user's earlier fixes, "heard → meant; ...".
+    func correct(_ text: String, vocabulary: String, learned: String = "") async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.run(text, vocabulary: vocabulary) })
+                continuation.resume(with: Result { try self.run(text, vocabulary: vocabulary, learned: learned) })
             }
         }
     }
@@ -179,11 +180,12 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func run(_ text: String, vocabulary: String) throws -> String {
+    private func run(_ text: String, vocabulary: String, learned: String) throws -> String {
         guard let model, let context, let sampler else { throw Failure.notReady }
         let vocab = llama_model_get_vocab(model)
         var system = Self.instructions
         if !vocabulary.isEmpty { system += "\n说话人常用的词：\(vocabulary)" }
+        if !learned.isEmpty { system += "\n说话人以前亲手改过的地方（左边是识别错的，右边是本意），同样的错再出现就照着改：\(learned)" }
         var tokens = tokenize(prompt(system: system, user: "<text>\(text)</text>"), vocab: vocab)
         let inputTokens = tokenize(text, vocab: vocab).count
         guard tokens.count + inputTokens * 2 + 64 < llama_n_ctx(context) else { throw Failure.tooLong }

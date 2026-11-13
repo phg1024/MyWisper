@@ -83,7 +83,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The user fixed a dictation in History.
+    func edit(_ entry: HistoryEntry, to text: String) {
+        LearnedFixes.shared.learn(typed: entry.text, edited: text, weight: LearnedFixes.confirmAt)
+        history.update(entry.id, text: text)
+    }
+
     func shutDown() {
+        EditWatcher.shared.finish()
         Corrector.shared.shutDown()   // ggml's Metal device crashes in its exit-time cleanup otherwise
     }
 
@@ -251,6 +258,7 @@ final class AppModel: ObservableObject {
             hud.flash(.message(error.localizedDescription, symbol: "mic.slash"))
             return false
         }
+        EditWatcher.shared.finish()
         self.latched = latched
         isRecording = true
         recordingStart = Date()
@@ -283,10 +291,12 @@ final class AppModel: ObservableObject {
             defer { pending -= 1 }
             do {
                 let transcript = try await engine.transcribe(samples)
-                let recognized = RepeatedEnding.fix(transcript.text)
+                let learned = LearnedFixes.shared
+                let recognized = learned.apply(RepeatedEnding.fix(transcript.text))
                 var corrected: String?
                 if prefs.correction, !recognized.isEmpty {
-                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: prefs.vocabulary)
+                    let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
+                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized))
                 }
                 let text = deliver(transcript, text: corrected ?? recognized)
                 if prefs.saveRecordings {
@@ -333,9 +343,15 @@ final class AppModel: ObservableObject {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
             return text
         }
-        history.add(transcript, text: text)
+        let id = history.add(transcript, text: text)
         let pasted = prefs.autoPaste && TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard)
         if !pasted { TextInjector.copy(text) }
+        if pasted && prefs.learnFromEdits {
+            EditWatcher.shared.begin(typed: text) { [weak self] edited in
+                guard !LearnedFixes.shared.learn(typed: text, edited: edited).isEmpty else { return }
+                self?.history.update(id, text: edited)
+            }
+        }
         if !isRecording { hud.flash(.done(text, pasted: pasted)) }
         return text
     }

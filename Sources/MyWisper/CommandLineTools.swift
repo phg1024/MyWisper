@@ -50,11 +50,12 @@ enum CommandLineTools {
                 do {
                     let samples = try AudioFile.load16kMono(URL(fileURLWithPath: file))
                     let t = try await engine.transcribe(samples)
-                    let text = RepeatedEnding.fix(t.text)
+                    let text = LearnedFixes.shared.apply(RepeatedEnding.fix(t.text))
                     print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, text))
                     if correct {
                         let start = Date()
-                        let fixed = try await Corrector.shared.correct(text, vocabulary: vocabulary)
+                        let fixed = try await Corrector.shared.correct(text, vocabulary: vocabulary,
+                                                                       learned: LearnedFixes.shared.hints(for: text))
                         print(String(format: "  corrected in %.0f ms | %@", Date().timeIntervalSince(start) * 1000, fixed))
                     }
                 } catch {

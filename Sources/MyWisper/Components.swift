@@ -75,6 +75,7 @@ struct HistoryRow: View {
     let entry: HistoryEntry
     var compact = true
     var onDelete: (() -> Void)?
+    var onEdit: (() -> Void)?
     @State private var hovering = false
     @State private var copied = false
 
@@ -107,6 +108,7 @@ struct HistoryRow: View {
         .help(t("点击复制", "Click to copy"))
         .contextMenu {
             Button(t("复制", "Copy")) { copy() }
+            if let onEdit { Button(t("改正…", "Correct…"), action: onEdit) }
             if let onDelete { Button(t("删除", "Delete"), role: .destructive, action: onDelete) }
         }
     }
