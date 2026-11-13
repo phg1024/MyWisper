@@ -32,14 +32,20 @@ if [ ! -f "models/$MODEL_NAME/model.int8.onnx" ]; then
   mkdir -p models
   curl -fL --progress-bar "$RELEASES/asr-models/$MODEL_NAME.tar.bz2" | tar xj -C models
 fi
-if [ ! -f Vendor/llama/lib/libllama.a ]; then
+# Bump LLAMA_BUILD when the build flags change, so existing checkouts rebuild.
+LLAMA_BUILD="$LLAMA_VERSION-2"
+if [ ! -f Vendor/llama/lib/libllama.a ] || [ "$(cat Vendor/llama/BUILD 2>/dev/null)" != "$LLAMA_BUILD" ]; then
   [ -d Vendor/llama.cpp-src ] || git clone --depth 1 --branch "$LLAMA_VERSION" https://github.com/ggml-org/llama.cpp Vendor/llama.cpp-src
   # GGML_NATIVE=OFF: runs on every Apple silicon Mac, not only the one that built it.
+  # -ffile-prefix-map: llama.cpp's assert messages embed source paths; keep this Mac's home path out.
+  PREFIX_MAP="-ffile-prefix-map=$PWD/Vendor/llama.cpp-src=llama.cpp"
   cmake -S Vendor/llama.cpp-src -B Vendor/llama.cpp-src/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
     -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DGGML_NATIVE=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+    -DCMAKE_C_FLAGS="$PREFIX_MAP" -DCMAKE_CXX_FLAGS="$PREFIX_MAP" -DCMAKE_OBJC_FLAGS="$PREFIX_MAP" -DCMAKE_ASM_FLAGS="$PREFIX_MAP" \
     -DLLAMA_BUILD_COMMON=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
     -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_APP=OFF -DCMAKE_INSTALL_PREFIX="$PWD/Vendor/llama"
   cmake --build Vendor/llama.cpp-src/build -j "$(sysctl -n hw.ncpu)" --config Release
   cmake --install Vendor/llama.cpp-src/build
+  echo "$LLAMA_BUILD" > Vendor/llama/BUILD
 fi
 echo "dependencies ready"

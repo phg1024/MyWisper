@@ -25,6 +25,8 @@ if [ -n "$DEVELOPER_ID" ]; then echo "signing as: $DEVELOPER_ID (will notarize)"
 DEVELOPER_ID="$DEVELOPER_ID" VERSION="$VERSION" ./build.sh
 APP=build/MyWisper.app
 codesign --verify --deep --strict "$APP"
+! grep -rqF "$HOME" "$APP/Contents/MacOS" "$APP/Contents/Frameworks" \
+  || { echo "the app contains this Mac's home path ($HOME); rerun ./fetch-deps.sh"; exit 1; }
 
 if [ -n "$DEVELOPER_ID" ]; then
   # Notarize the app itself and staple the ticket, so it opens even offline once copied out of the DMG.
