@@ -87,18 +87,15 @@ private struct GeneralSettings: View {
             Section {
                 Toggle(t("用本机大模型纠正听错的词", "Fix misheard words with a local language model"), isOn: $prefs.correction)
                 if prefs.correction {
-                    TextField(t("地址", "Endpoint"), text: $prefs.correctionEndpoint)
-                    TextField(t("模型", "Model"), text: $prefs.correctionModel,
-                              prompt: Text(t("Ollama、LM Studio 要填，比如 qwen3.5:9b", "Needed for Ollama or LM Studio, e.g. qwen3.5:9b")))
-                    if !Corrector.isLoopback(prefs.correctionEndpoint) {
-                        Text(t("只能用本机地址（127.0.0.1 或 localhost）。", "Only addresses on this Mac (127.0.0.1 or localhost) are allowed."))
-                            .foregroundStyle(.orange)
+                    Picker(t("模型", "Model"), selection: $prefs.correctionModel) {
+                        ForEach(CorrectionModel.allCases) { Text($0.title).tag($0) }
                     }
+                    CorrectionStatus(choice: prefs.correctionModel)
                 }
             } header: {
                 Text(t("纠错（实验）", "Correction (experimental)"))
             } footer: {
-                Text(t("识别完把文字交给这台 Mac 上运行的模型（OpenAI 兼容接口，比如 llama.cpp、LM Studio），按上下文改正同音字和专有名词。每句多花大约半秒；模型没开或超过 \(Int(Corrector.timeout)) 秒就直接用原来的结果。只连本机，文字不会离开这台 Mac。", "Sends the text to a model running on this Mac (an OpenAI-compatible server such as llama.cpp or LM Studio) to fix sound-alike words and names from context. Adds about half a second; if the server is off or takes more than \(Int(Corrector.timeout)) s, the text is used as recognized. Loopback only: the text never leaves this Mac."))
+                Text(t("识别完用一个 Qwen 模型按上下文改正同音字和专有名词（参考上面的常用词），每句多花大约半秒。模型要先下载一次（来自 Hugging Face），之后纠错完全在这台 Mac 上运行，不联网。", "After recognition, a Qwen model fixes sound-alike words and names from context (using the vocabulary above). Adds about half a second. The model is downloaded once from Hugging Face; after that, correction runs entirely on this Mac with no network access."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -144,6 +141,47 @@ private struct GeneralSettings: View {
             Button(t("清空", "Clear"), role: .destructive) { history.clear() }
         } message: {
             Text(t("这一步不能撤销。", "This can’t be undone."))
+        }
+    }
+}
+
+/// Download prompt, progress or readiness of the correction model.
+private struct CorrectionStatus: View {
+    let choice: CorrectionModel
+    @ObservedObject private var corrector = Corrector.shared
+
+    var body: some View {
+        switch corrector.state {
+        case .off, .loading:
+            HStack {
+                Text(t("正在加载模型…", "Loading the model…")).foregroundStyle(.secondary)
+                Spacer()
+                ProgressView().controlSize(.small)
+            }
+        case .needsDownload:
+            HStack(alignment: .firstTextBaseline) {
+                Text(t("需要下载 \(choice.fileName)（\(ByteCountFormatter.string(fromByteCount: choice.bytes, countStyle: .file))，来自 Hugging Face）", "Needs \(choice.fileName) (\(ByteCountFormatter.string(fromByteCount: choice.bytes, countStyle: .file)), from Hugging Face)"))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(t("下载", "Download")) { corrector.startDownload(choice) }
+            }
+        case .downloading(let fraction):
+            HStack {
+                ProgressView(value: fraction) {
+                    Text(t("正在下载 \(Int(fraction * 100))%", "Downloading \(Int(fraction * 100))%")).foregroundStyle(.secondary)
+                }
+                Button(t("取消", "Cancel")) { corrector.cancelDownload() }
+            }
+        case .ready:
+            Label(t("模型已就绪", "Model ready"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .failed(let message):
+            HStack(alignment: .firstTextBaseline) {
+                Text(message).foregroundStyle(.orange)
+                Spacer()
+                Button(t("重试", "Retry")) {
+                    if choice.isDownloaded { corrector.configure(enabled: true, model: choice) } else { corrector.startDownload(choice) }
+                }
+            }
         }
     }
 }
@@ -220,7 +258,7 @@ struct AboutSettings: View {
             Text(t("MyWisper 免费开源。觉得好用的话，欢迎请我喝杯咖啡。", "MyWisper is free and open source. If it helps you, a coffee is always appreciated."))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-            Text(t("SenseVoice-Small 模型来自 FunAudioLLM（阿里巴巴通义实验室），遵循 FunASR 模型开源协议；sherpa-onnx（Apache-2.0）、ONNX Runtime（MIT）。详见 App 包内的 THIRD_PARTY_NOTICES.md。", "SenseVoice-Small by FunAudioLLM (Tongyi Lab, Alibaba Group), under the FunASR Model Open Source License; sherpa-onnx (Apache-2.0), ONNX Runtime (MIT). See THIRD_PARTY_NOTICES.md inside the app."))
+            Text(t("SenseVoice-Small 模型来自 FunAudioLLM（阿里巴巴通义实验室），遵循 FunASR 模型开源协议；sherpa-onnx（Apache-2.0）、ONNX Runtime（MIT）、llama.cpp（MIT）。详见 App 包内的 THIRD_PARTY_NOTICES.md。", "SenseVoice-Small by FunAudioLLM (Tongyi Lab, Alibaba Group), under the FunASR Model Open Source License; sherpa-onnx (Apache-2.0), ONNX Runtime (MIT), llama.cpp (MIT). See THIRD_PARTY_NOTICES.md inside the app."))
                 .font(.system(size: 10))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.tertiary)

@@ -73,11 +73,18 @@ final class AppModel: ObservableObject {
         prefs.$language.dropFirst().removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { self?.loadModel() }   // after the new value is stored
         }.store(in: &subscriptions)
+        prefs.$correction.combineLatest(prefs.$correctionModel).sink { on, choice in
+            Corrector.shared.configure(enabled: on, model: choice)
+        }.store(in: &subscriptions)
         prefs.$saveHistory.sink { [weak self] on in self?.history.persist = on }.store(in: &subscriptions)
 
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshPermissions() }
         }
+    }
+
+    func shutDown() {
+        Corrector.shared.shutDown()   // ggml's Metal device crashes in its exit-time cleanup otherwise
     }
 
     private func loadModel() {
@@ -247,7 +254,6 @@ final class AppModel: ObservableObject {
         self.latched = latched
         isRecording = true
         recordingStart = Date()
-        if prefs.correction { Corrector.warmUp(endpoint: prefs.correctionEndpoint, model: prefs.correctionModel) }
         levels = Array(repeating: 0, count: Self.levelCount)
         // Sound and HUD wait a moment, so a ⌥E typed with the dictation key shows nothing at all.
         let work = DispatchWorkItem { [weak self] in
@@ -280,8 +286,7 @@ final class AppModel: ObservableObject {
                 let recognized = RepeatedEnding.fix(transcript.text)
                 var corrected: String?
                 if prefs.correction, !recognized.isEmpty {
-                    corrected = try? await Corrector.correct(recognized, vocabulary: prefs.vocabulary,
-                                                             endpoint: prefs.correctionEndpoint, model: prefs.correctionModel)
+                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: prefs.vocabulary)
                 }
                 let text = deliver(transcript, text: corrected ?? recognized)
                 if prefs.saveRecordings {

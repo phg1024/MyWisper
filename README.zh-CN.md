@@ -22,7 +22,7 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 
 - **中文、英文、粤语、日语、韩语**，一句话里中英混说也行，自动识别语言。
 - **快**：几秒钟的话，在 Apple 芯片上约 50 毫秒出字。
-- **私密**：App 里没有任何联网代码；录音只在内存里，识别完就丢掉。
+- **私密**：识别完全不联网；录音只在内存里，识别完就丢掉。
 - **原生**：SwiftUI 写的，录音时屏幕底部有带实时波形的提示条，有历史记录，界面支持中文和英文。
 
 <p align="center">
@@ -57,7 +57,7 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 
 ## 隐私
 
-- 不联网。唯一的网络代码是默认关闭的 **纠错**（设置 › 通用），它只连这台 Mac 上运行的大模型服务，127.0.0.1 / localhost 以外的地址一律拒绝。不开纠错时 MyWisper 不建立任何连接，可以用 `lsof -i -a -p $(pgrep -x MyWisper)` 自己查。
+- 你说的话不会上网。唯一的联网是可选的：打开 **纠错**（设置 › 通用）并点「下载」后，MyWisper 从 Hugging Face 下载一次 Qwen 模型（固定版本，校验 SHA-256）。纠错本身在 App 里用 llama.cpp 运行。除此之外 MyWisper 不建立任何连接，可以用 `lsof -i -a -p $(pgrep -x MyWisper)` 自己查。
 - 用沙箱禁掉网络后识别结果完全一样，模型就在 App 里。
 - 识别出的文字写进剪贴板时标成「仅本机」，不会经「通用剪贴板」同步到你的其他设备。粘贴后会恢复原来的剪贴板（可以关掉）。
 - 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）和偏好设置。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（排查识别问题时用，存在历史记录旁边的 `Recordings/` 里）。
@@ -69,7 +69,7 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 
 ```bash
 git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
-./fetch-deps.sh        # 下载 sherpa-onnx 2.0.1 的库到 Vendor/，SenseVoice 模型到 models/（约 1GB）
+./fetch-deps.sh        # 下载 sherpa-onnx 2.0.1 的库、从源码编译 llama.cpp 到 Vendor/，SenseVoice 模型到 models/（约 1GB）
 ./build.sh install     # 生成 build/MyWisper.app 并复制到 ~/Applications
 ```
 
@@ -87,5 +87,6 @@ MyWisper 以 [MIT 许可证](LICENSE) 发布。
 
 - 语音模型：**SenseVoice-Small**，来自 FunAudioLLM（阿里巴巴通义实验室），遵循 [FunASR 模型开源协议 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)；ONNX 版本由 sherpa-onnx 项目转换。
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)（Apache-2.0）和 [ONNX Runtime](https://github.com/microsoft/onnxruntime)（MIT）。
+- 可选的纠错用 [llama.cpp](https://github.com/ggml-org/llama.cpp)（MIT）；[Qwen3.5](https://huggingface.co/Qwen) 模型（Apache-2.0）只在你要求时才下载。
 
 完整许可证文本在 [ThirdParty/](ThirdParty/) 目录和 App 包里。

@@ -2,12 +2,15 @@
 # Downloads what build.sh needs but git doesn't keep, from sherpa-onnx's GitHub releases:
 #   Vendor/sherpa-onnx/  the C API and onnxruntime dylibs (arm64) and the C header
 #   models/...           the SenseVoice model (a ~1 GB download; only model.int8.onnx goes into the app)
+# and llama.cpp for correction: the source from GitHub, built here into static libraries with Metal
+# (Vendor/llama/). The correction model itself isn't bundled; the app downloads it when the user asks.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 SHERPA_VERSION=2.0.1
 MODEL_NAME=sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
 RELEASES=https://github.com/k2-fsa/sherpa-onnx/releases/download
+LLAMA_VERSION=v0.9.0
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -28,5 +31,15 @@ if [ ! -f "models/$MODEL_NAME/model.int8.onnx" ]; then
   echo "downloading $MODEL_NAME"
   mkdir -p models
   curl -fL --progress-bar "$RELEASES/asr-models/$MODEL_NAME.tar.bz2" | tar xj -C models
+fi
+if [ ! -f Vendor/llama/lib/libllama.a ]; then
+  [ -d Vendor/llama.cpp-src ] || git clone --depth 1 --branch "$LLAMA_VERSION" https://github.com/ggml-org/llama.cpp Vendor/llama.cpp-src
+  # GGML_NATIVE=OFF: runs on every Apple silicon Mac, not only the one that built it.
+  cmake -S Vendor/llama.cpp-src -B Vendor/llama.cpp-src/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF \
+    -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DGGML_NATIVE=OFF -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+    -DLLAMA_BUILD_COMMON=OFF -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_TOOLS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+    -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_APP=OFF -DCMAKE_INSTALL_PREFIX="$PWD/Vendor/llama"
+  cmake --build Vendor/llama.cpp-src/build -j "$(sysctl -n hw.ncpu)" --config Release
+  cmake --install Vendor/llama.cpp-src/build
 fi
 echo "dependencies ready"

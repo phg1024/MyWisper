@@ -18,11 +18,11 @@
   <a href="https://buymeacoffee.com/phg1024"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
-MyWisper is a menu bar dictation app for macOS. Hold a shortcut (right Option by default), talk, let go — the text is typed into whatever app you're in. Speech recognition runs entirely on your Mac with [SenseVoice-Small](https://github.com/FunAudioLLM/SenseVoice) through [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): no account, no cloud, no network access at all.
+MyWisper is a menu bar dictation app for macOS. Hold a shortcut (right Option by default), talk, let go — the text is typed into whatever app you're in. Speech recognition runs entirely on your Mac with [SenseVoice-Small](https://github.com/FunAudioLLM/SenseVoice) through [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): no account, no cloud, no network access.
 
 - **Chinese, English, Cantonese, Japanese, Korean**, and Chinese–English mixed in one sentence, detected automatically.
 - **Fast**: a few seconds of speech is transcribed in about 50 ms on Apple silicon.
-- **Private**: the app contains no networking code; audio stays in memory and is discarded after recognition.
+- **Private**: recognition never touches the network; audio stays in memory and is discarded after recognition.
 - **Native**: SwiftUI, a small floating HUD with a live waveform, history, English and Chinese interface.
 
 <p align="center">
@@ -57,7 +57,7 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 
 ## Privacy
 
-- Nothing goes online. The only network code is the optional, off-by-default **Correction** (Settings › General), which talks to a language model server on this Mac and refuses any address other than 127.0.0.1 / localhost. With it off, MyWisper opens no connections at all: check with `lsof -i -a -p $(pgrep -x MyWisper)`.
+- Nothing you say goes online. The only network access is optional: if you turn on **Correction** (Settings › General) and click **Download**, MyWisper downloads the Qwen model once from Hugging Face (pinned version, SHA-256 checked). Correction itself runs inside the app with llama.cpp. Otherwise MyWisper opens no connections at all: check with `lsof -i -a -p $(pgrep -x MyWisper)`.
 - Recognition works identically with networking blocked by a sandbox; the model ships inside the app.
 - Dictated text is written to the clipboard as *this Mac only*, so Universal Clipboard doesn't send it to your other devices. The previous clipboard is restored after pasting (can be turned off).
 - Stored on disk: the history at `~/Library/Application Support/MyWisper/history.json` (readable only by you; can be turned off or cleared) and your preferences. Audio is never written to disk, unless you turn on Settings › General › **Save recordings** (for tracking down recognition problems; kept in `Recordings/` next to the history).
@@ -69,7 +69,7 @@ Needs Xcode (or the Command Line Tools) on an Apple silicon Mac.
 
 ```bash
 git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
-./fetch-deps.sh        # sherpa-onnx 2.0.1 libraries into Vendor/, SenseVoice model into models/ (~1 GB)
+./fetch-deps.sh        # sherpa-onnx 2.0.1 libraries and llama.cpp (built from source) into Vendor/, SenseVoice model into models/ (~1 GB)
 ./build.sh install     # builds build/MyWisper.app and copies it to ~/Applications
 ```
 
@@ -87,5 +87,6 @@ MyWisper is released under the [MIT License](LICENSE).
 
 - Speech model: **SenseVoice-Small** by FunAudioLLM (Tongyi Lab, Alibaba Group), under the [FunASR Model Open Source License 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE); ONNX conversion by the sherpa-onnx project.
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0) and [ONNX Runtime](https://github.com/microsoft/onnxruntime) (MIT).
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT) for the optional correction; the [Qwen3.5](https://huggingface.co/Qwen) model (Apache-2.0) is downloaded only if you ask for it.
 
 Full texts are in [ThirdParty/](ThirdParty/) and inside the app.

@@ -28,6 +28,10 @@ enum CommandLineTools {
         let correct = files.contains("--correct")
         files.removeAll { $0 == "--correct" }
         let vocabulary = ProcessInfo.processInfo.environment["MYWISPER_VOCABULARY"] ?? ""
+        if correct {
+            // MYWISPER_LLM_MODEL=/path/to/model.gguf, or the downloaded recommended model.
+            do { try Corrector.shared.loadForCommandLine(.recommended) } catch { print("correction model: \(error.localizedDescription)"); exit(1) }
+        }
         if let i = files.firstIndex(of: "--language"), i + 1 < files.count {
             language = Language(rawValue: files[i + 1]) ?? .auto
             files.removeSubrange(i...(i + 1))
@@ -50,8 +54,7 @@ enum CommandLineTools {
                     print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, text))
                     if correct {
                         let start = Date()
-                        let fixed = try await Corrector.correct(text, vocabulary: vocabulary, endpoint: ProcessInfo.processInfo.environment["MYWISPER_CORRECTION_ENDPOINT"] ?? Corrector.defaultEndpoint,
-                                                                   model: ProcessInfo.processInfo.environment["MYWISPER_CORRECTION_MODEL"] ?? "")
+                        let fixed = try await Corrector.shared.correct(text, vocabulary: vocabulary)
                         print(String(format: "  corrected in %.0f ms | %@", Date().timeIntervalSince(start) * 1000, fixed))
                     }
                 } catch {
@@ -61,6 +64,7 @@ enum CommandLineTools {
             }
             done.wait()
         }
+        Corrector.shared.shutDown()
     }
 
     // MARK: Snapshots

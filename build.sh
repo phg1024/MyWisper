@@ -13,6 +13,7 @@ MODEL=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
 [ -f Vendor/sherpa-onnx/lib/libsherpa-onnx-c-api.dylib ] && [ -f Vendor/sherpa-onnx/include/sherpa-onnx/c-api/c-api.h ] \
   || { echo "missing Vendor/sherpa-onnx: run ./fetch-deps.sh"; exit 1; }
 [ -f "$MODEL/model.int8.onnx" ] || { echo "missing $MODEL/model.int8.onnx: run ./fetch-deps.sh"; exit 1; }
+[ -f Vendor/llama/lib/libllama.a ] || { echo "missing Vendor/llama: run ./fetch-deps.sh"; exit 1; }
 
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/MyWisper"
