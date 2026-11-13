@@ -9,7 +9,8 @@ words the model wrote for that stretch are replaced by the remembered word, whol
 Compared with the text fixes the app already learns ("kiowway" → "Kilauea" only when it is misheard
 exactly the same way again), this should catch the same word misheard differently.
 
-    python word_memory.py truth.json
+    python word_memory.py truth.json      # recordings, references by hand
+    python word_memory.py --training      # the app's training samples and learned fixes
 
 truth.json: [["misheard", "meant"], ...], what the user actually said, applied to the model's own output
 to get each recording's reference. Kept out of the repository: it is the user's speech.
@@ -132,19 +133,36 @@ class Decoded:
         return True
 
 
-def main():
-    truth = [tuple(p) for p in json.loads(Path(sys.argv[1]).read_text())]
-    sv = SenseVoice()
+def training_data(sv: SenseVoice):
+    """The app's own training samples: the reference is the text the user ended up with, the words are
+    the ones the app learned from their corrections (learned.json)."""
+    support = Path.home() / "Library/Application Support/MyWisper"
+    learned = [(f["heard"], f["meant"]) for f in json.loads((support / "learned.json").read_text())]
     data = []
-    for wav, _ in recordings():
-        logp, enc = sv.run(load_wav(wav))
-        base = sv.text(sv.greedy(logp))
-        ref = replace(base, truth)
-        data.append(dict(name=wav.stem, logp=logp, enc=unit(enc), base=base, ref=ref,
-                         fixes={p for p in truth if p[0].lower() in base.lower()}))
+    for s in json.loads((support / "Training/samples.json").read_text()):
+        if s["label"] == "modelChanged":
+            continue
+        logp, enc = sv.run(load_wav(support / "Training" / s["audio"]))
+        data.append(dict(name=s["date"], logp=logp, enc=unit(enc), base=sv.text(sv.greedy(logp)), ref=s["text"],
+                         fixes={p for p in learned if p[0] in s["recognized"] and p[1] in s["text"]}))
+    return data, sorted({m for _, m in learned})
+
+
+def main():
+    sv = SenseVoice()
+    if sys.argv[1] == "--training":
+        data, words = training_data(sv)
+    else:
+        truth = [tuple(p) for p in json.loads(Path(sys.argv[1]).read_text())]
+        data = []
+        for wav, _ in recordings():
+            logp, enc = sv.run(load_wav(wav))
+            base = sv.text(sv.greedy(logp))
+            data.append(dict(name=wav.stem, logp=logp, enc=unit(enc), base=base, ref=replace(base, truth),
+                             fixes={p for p in truth if p[0].lower() in base.lower()}))
+        words = sorted({m for _, m in truth})
 
     # Every occurrence of a corrected-to word: its encoder frames, from aligning the reference.
-    words = sorted({m for _, m in truth})
     for d in data:
         d["exemplars"] = []
         ids = sv.tokenize(d["ref"])
