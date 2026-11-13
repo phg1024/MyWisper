@@ -5,6 +5,7 @@ import SwiftUI
 ///   MyWisper --transcribe a.wav [b.wav ...] [--language zh]
 ///   MyWisper --snapshot <dir> [en|zh]  renders the main views to PNG
 ///   MyWisper --make-icon <dir.iconset>
+///   MyWisper --microphones             lists the inputs and the one a recording would use
 enum CommandLineTools {
     static func run(_ args: [String]) -> Bool {
         guard args.count > 1 else { return false }
@@ -16,6 +17,11 @@ enum CommandLineTools {
             MainActor.assumeIsolated { snapshot(into: URL(fileURLWithPath: args[2])) }
         case "--make-icon" where args.count > 2:
             MainActor.assumeIsolated { makeIcon(URL(fileURLWithPath: args[2])) }
+        case "--microphones":
+            let chosen = Microphones.choose(uid: Preferences.shared.microphone)
+            for mic in Microphones.all() {
+                print("\(mic.uid == chosen?.uid ? "*" : " ") \(mic.name)\(mic.isBluetooth ? " (Bluetooth)" : "")\(mic.isVirtual ? " (virtual)" : "")")
+            }
         default:
             return false   // e.g. -NSDocumentRevisionsDebugMode from Xcode
         }

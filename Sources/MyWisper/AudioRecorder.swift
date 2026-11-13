@@ -6,8 +6,8 @@ enum RecorderError: LocalizedError {
     var errorDescription: String? { t("没有可用的麦克风", "No microphone available") }
 }
 
-/// Captures the default input device and converts it to 16 kHz mono float samples for SenseVoice.
-/// A fresh AVAudioEngine per recording follows device changes (AirPods, USB mics) without extra handling.
+/// Captures an input device (the default one unless told otherwise) and converts it to 16 kHz mono float
+/// samples for SenseVoice. A fresh AVAudioEngine per recording follows device changes without extra handling.
 final class AudioRecorder: @unchecked Sendable {
     /// Called on the main queue roughly every 20 ms with a 0...1 loudness value.
     var onLevel: ((Float) -> Void)?
@@ -19,9 +19,13 @@ final class AudioRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var samples: [Float] = []
 
-    func start() throws {
+    func start(device: AudioDeviceID? = nil) throws {
         let engine = AVAudioEngine()
         let input = engine.inputNode
+        if var device, let unit = input.audioUnit {
+            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        }
         let format = input.outputFormat(forBus: 0)
         guard format.sampleRate > 0, format.channelCount > 0,
               let converter = AVAudioConverter(from: format, to: target) else { throw RecorderError.noInput }

@@ -154,6 +154,8 @@ final class Preferences: ObservableObject {
     @Published var hotkey: Hotkey { didSet { defaults.set(hotkey.rawValue, forKey: "hotkey") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
+    /// An input device's UID, or empty for automatic (the default input, but not a Bluetooth headset's).
+    @Published var microphone: String { didSet { defaults.set(microphone, forKey: "microphone") } }
     /// Names and terms the user says often, for the corrector.
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
     @Published var correction: Bool { didSet { defaults.set(correction, forKey: "correction") } }
@@ -204,6 +206,7 @@ final class Preferences: ObservableObject {
         hotkey = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
+        microphone = defaults.string(forKey: "microphone") ?? ""
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         correction = defaults.bool(forKey: "correction")
         correctionModel = CorrectionModel(rawValue: defaults.string(forKey: "correctionModel") ?? "") ?? .recommended

@@ -51,6 +51,7 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 - **Adaptive mode** (default): hold the key while you talk and release to finish, or tap it once to start and tap again when done.
 - Other keys: left Option, right Command, left or right Control, or Fn. Easiest: Settings › General › **Record Key…** and press the key you want. (For Fn, set System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing".)
 - The microphone opens about 0.12 s after the key goes down, so shortcuts like ⌃C or ⌥E never trigger it; pressing another key while holding the shortcut discards that recording. **esc** cancels.
+- With AirPods or another Bluetooth headset on, MyWisper records with the Mac's (or camera's) microphone and leaves the headset playing: using the headset's microphone switches it to call mode, which delays the start by seconds and muffles its sound. Settings › General › Microphone picks a specific one.
 - Without Accessibility permission, the text is copied to the clipboard instead.
 - Recent results are in the menu bar window (click to copy); the full, searchable history is under **All history**.
 - **Learns from your fixes**: fix a word right where it was typed (within two minutes), or right-click it in All history › Correct, and MyWisper remembers it. A fix made twice is applied automatically from then on; the correction model also uses your fixes as hints. Settings › General › Learning lists what it learned.

@@ -72,6 +72,14 @@ private struct GeneralSettings: View {
             }
 
             Section {
+                Picker(t("麦克风", "Microphone"), selection: $prefs.microphone) {
+                    Text(t("自动（不用蓝牙耳机的麦克风）", "Automatic (not a Bluetooth headset’s)")).tag("")
+                    let microphones = Microphones.all().filter { !$0.isVirtual }
+                    ForEach(microphones) { Text($0.name).tag($0.uid) }
+                    if !prefs.microphone.isEmpty, !microphones.contains(where: { $0.uid == prefs.microphone }) {
+                        Text(t("（未连接的设备）", "(Not connected)")).tag(prefs.microphone)
+                    }
+                }
                 Picker(t("语言提示", "Language hint"), selection: $prefs.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
                 }
@@ -81,7 +89,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text(t("识别", "Recognition"))
             } footer: {
-                Text(t("SenseVoice 会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开，下面的纠错会参考它。", "SenseVoice detects the language by itself; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas, used by the correction below."))
+                Text(t("麦克风选「自动」时，戴着 AirPods 之类的蓝牙耳机也用电脑或摄像头的麦克风录音：用耳机的麦克风要先把耳机切到通话模式，开始录音会慢好几秒，耳机里的声音也会变闷。SenseVoice 会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开，下面的纠错会参考它。", "With the microphone on Automatic, a Bluetooth headset such as AirPods only plays sound and the Mac’s or camera’s microphone records: using the headset’s microphone switches it to call mode, which delays the start by seconds and muffles what it plays. SenseVoice detects the language by itself; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas, used by the correction below."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)

@@ -62,6 +62,7 @@ final class AppModel: ObservableObject {
         history.persist = prefs.saveHistory
         loadModel()
         recorder.onLevel = { [weak self] level in self?.push(level: level) }
+        Microphones.noteDefault()
 
         hotkeys.onDown = { [weak self] in MainActor.assumeIsolated { self?.hotkeyDown() } }
         hotkeys.onUp = { [weak self] in MainActor.assumeIsolated { self?.hotkeyUp() } }
@@ -260,7 +261,7 @@ final class AppModel: ObservableObject {
             return false
         }
         do {
-            try recorder.start()
+            try recorder.start(device: Microphones.choose(uid: prefs.microphone)?.device)
         } catch {
             hud.flash(.message(error.localizedDescription, symbol: "mic.slash"))
             return false
