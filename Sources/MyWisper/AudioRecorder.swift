@@ -11,7 +11,7 @@ enum RecorderError: LocalizedError {
 /// engine's input node first opens the system default input, and when that is a Bluetooth headset it
 /// switches the headset to call mode (seconds) even if another device is picked right after.
 final class AudioRecorder: @unchecked Sendable {
-    /// Called on the main queue roughly every 20 ms with a 0...1 loudness value.
+    /// Called on the main queue every 0.1 s of audio with a 0...1 loudness value (the waveform's pace).
     var onLevel: ((Float) -> Void)?
 
     private var unit: AudioUnit?
@@ -23,6 +23,9 @@ final class AudioRecorder: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.peihongguo.MyWisper.recorder")
     private let lock = NSLock()
     private var samples: [Float] = []
+    /// Loudness over the current 0.1 s, on the queue.
+    private var energy: Float = 0
+    private var counted = 0
 
     func start(device: AudioDeviceID? = nil) throws {
         guard let device = device ?? Microphones.defaultInput()?.device else { throw RecorderError.noInput }
@@ -56,6 +59,7 @@ final class AudioRecorder: @unchecked Sendable {
             Unmanaged<AudioRecorder>.fromOpaque(refCon).takeUnretainedValue().render(flags, time, bus, frames)
         }, inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
         lock.withLock { samples.removeAll(keepingCapacity: true) }
+        queue.sync { energy = 0; counted = 0 }
         self.buffer = buffer
         self.converter = converter
         self.unit = unit
@@ -98,11 +102,16 @@ final class AudioRecorder: @unchecked Sendable {
 
     private func process(_ chunk: [Float], format: AVAudioFormat) {
         guard !chunk.isEmpty else { return }
-        var sum: Float = 0
-        for x in chunk { sum += x * x }
-        let rms = sqrt(sum / Float(chunk.count))
-        let level = max(0, min(1, (20 * log10(max(rms, 1e-6)) + 55) / 45))
-        DispatchQueue.main.async { [weak self] in self?.onLevel?(level) }
+        // The device hands over ~10 ms at a time; the waveform moves one bar per 0.1 s.
+        for x in chunk { energy += x * x }
+        counted += chunk.count
+        if counted >= Int(format.sampleRate / 10) {
+            let rms = sqrt(energy / Float(counted))
+            let level = max(0, min(1, (20 * log10(max(rms, 1e-6)) + 55) / 45))
+            DispatchQueue.main.async { [weak self] in self?.onLevel?(level) }
+            energy = 0
+            counted = 0
+        }
 
         guard let converter, let input = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(chunk.count)) else { return }
         input.frameLength = AVAudioFrameCount(chunk.count)
