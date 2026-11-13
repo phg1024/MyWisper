@@ -31,6 +31,8 @@ if [ -n "${VERSION:-}" ]; then
 fi
 # The vendor rpath is only for `swift run`; it would also put this Mac's home path into the app.
 install_name_tool -delete_rpath "$PWD/Vendor/sherpa-onnx/lib" "$STAGE/Contents/MacOS/MyWisper" 2>/dev/null || true
+# Debug symbols (stabs) name the source and object files under this Mac's home folder.
+strip -S "$STAGE/Contents/MacOS/MyWisper"
 cp -R Resources/en.lproj Resources/zh-Hans.lproj "$STAGE/Contents/Resources/"
 cp ThirdParty/THIRD_PARTY_NOTICES.md ThirdParty/onnxruntime-ThirdPartyNotices.txt "$STAGE/Contents/Resources/"
 cp -c "$MODEL/model.int8.onnx" "$MODEL/tokens.txt" "$STAGE/Contents/Resources/model/" 2>/dev/null \
