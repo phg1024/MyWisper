@@ -7,60 +7,107 @@ enum RecorderError: LocalizedError {
 }
 
 /// Captures an input device (the default one unless told otherwise) and converts it to 16 kHz mono float
-/// samples for SenseVoice. A fresh AVAudioEngine per recording follows device changes without extra handling.
+/// samples for SenseVoice. Talks to the device through its own AUHAL unit rather than AVAudioEngine: the
+/// engine's input node first opens the system default input, and when that is a Bluetooth headset it
+/// switches the headset to call mode (seconds) even if another device is picked right after.
 final class AudioRecorder: @unchecked Sendable {
     /// Called on the main queue roughly every 20 ms with a 0...1 loudness value.
     var onLevel: ((Float) -> Void)?
 
-    private var engine: AVAudioEngine?
+    private var unit: AudioUnit?
+    private var buffer: AVAudioPCMBuffer?
     private var converter: AVAudioConverter?
     private let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: Double(ASREngine.sampleRate),
                                        channels: 1, interleaved: false)!
+    /// Converts off the audio thread, in order.
+    private let queue = DispatchQueue(label: "com.peihongguo.MyWisper.recorder")
     private let lock = NSLock()
     private var samples: [Float] = []
 
     func start(device: AudioDeviceID? = nil) throws {
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
-        if var device, let unit = input.audioUnit {
-            AudioUnitSetProperty(unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
-                                 &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        guard let device = device ?? Microphones.defaultInput()?.device else { throw RecorderError.noInput }
+        var description = AudioComponentDescription(componentType: kAudioUnitType_Output, componentSubType: kAudioUnitSubType_HALOutput,
+                                                    componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0)
+        var unit: AudioUnit?
+        guard let component = AudioComponentFindNext(nil, &description),
+              AudioComponentInstanceNew(component, &unit) == noErr, let unit else { throw RecorderError.noInput }
+        func set<T>(_ property: AudioUnitPropertyID, _ scope: AudioUnitScope, _ element: AudioUnitElement, _ value: T) -> Bool {
+            withUnsafePointer(to: value) {
+                AudioUnitSetProperty(unit, property, scope, element, $0, UInt32(MemoryLayout<T>.size)) == noErr
+            }
         }
-        let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0,
-              let converter = AVAudioConverter(from: format, to: target) else { throw RecorderError.noInput }
+        // Input only (element 1), from this device.
+        var hardware = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        guard set(kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, UInt32(1)),
+              set(kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, UInt32(0)),
+              set(kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0, device),
+              AudioUnitGetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &hardware, &size) == noErr,
+              hardware.mSampleRate > 0,
+              let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: hardware.mSampleRate, channels: 1, interleaved: false),
+              set(kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, format.streamDescription.pointee),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16384),
+              let converter = AVAudioConverter(from: format, to: target)
+        else {
+            AudioComponentInstanceDispose(unit)
+            throw RecorderError.noInput
+        }
+        let callback = AURenderCallbackStruct(inputProc: { refCon, flags, time, bus, frames, _ in
+            Unmanaged<AudioRecorder>.fromOpaque(refCon).takeUnretainedValue().render(flags, time, bus, frames)
+        }, inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
         lock.withLock { samples.removeAll(keepingCapacity: true) }
+        self.buffer = buffer
         self.converter = converter
-        input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.process(buffer)
+        self.unit = unit
+        guard set(kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0, callback),
+              AudioUnitInitialize(unit) == noErr, AudioOutputUnitStart(unit) == noErr else {
+            AudioComponentInstanceDispose(unit)
+            self.unit = nil
+            throw RecorderError.noInput
         }
-        engine.prepare()
-        try engine.start()
-        self.engine = engine
     }
 
     /// Stops capturing and returns everything recorded since start().
     func stop() -> [Float] {
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
+        if let unit {
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
         }
-        engine = nil
+        unit = nil
+        queue.sync {}   // what was already captured
         converter = nil
+        buffer = nil
         return lock.withLock { samples }
     }
 
-    private func process(_ buffer: AVAudioPCMBuffer) {
-        if let channel = buffer.floatChannelData?[0], buffer.frameLength > 0 {
-            var sum: Float = 0
-            for i in 0..<Int(buffer.frameLength) { sum += channel[i] * channel[i] }
-            let rms = sqrt(sum / Float(buffer.frameLength))
-            let level = max(0, min(1, (20 * log10(max(rms, 1e-6)) + 55) / 45))
-            DispatchQueue.main.async { [weak self] in self?.onLevel?(level) }
-        }
+    /// On the audio thread: pulls the new frames and hands a copy to the queue.
+    private func render(_ flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>, _ time: UnsafePointer<AudioTimeStamp>,
+                        _ bus: UInt32, _ frames: UInt32) -> OSStatus {
+        guard let unit, let buffer, frames <= buffer.frameCapacity else { return noErr }
+        buffer.frameLength = frames
+        let list = buffer.mutableAudioBufferList
+        list.pointee.mBuffers.mDataByteSize = frames * 4
+        let status = AudioUnitRender(unit, flags, time, bus, frames, list)
+        guard status == noErr, let data = buffer.floatChannelData?[0] else { return status }
+        let chunk = Array(UnsafeBufferPointer(start: data, count: Int(frames)))
+        let format = buffer.format
+        queue.async { [weak self] in self?.process(chunk, format: format) }
+        return noErr
+    }
 
-        guard let converter else { return }
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * target.sampleRate / buffer.format.sampleRate) + 64
+    private func process(_ chunk: [Float], format: AVAudioFormat) {
+        guard !chunk.isEmpty else { return }
+        var sum: Float = 0
+        for x in chunk { sum += x * x }
+        let rms = sqrt(sum / Float(chunk.count))
+        let level = max(0, min(1, (20 * log10(max(rms, 1e-6)) + 55) / 45))
+        DispatchQueue.main.async { [weak self] in self?.onLevel?(level) }
+
+        guard let converter, let input = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(chunk.count)) else { return }
+        input.frameLength = AVAudioFrameCount(chunk.count)
+        chunk.withUnsafeBufferPointer { input.floatChannelData![0].update(from: $0.baseAddress!, count: chunk.count) }
+        let capacity = AVAudioFrameCount(Double(chunk.count) * target.sampleRate / format.sampleRate) + 64
         guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
         var supplied = false
         var error: NSError?
@@ -71,11 +118,11 @@ final class AudioRecorder: @unchecked Sendable {
             }
             supplied = true
             status.pointee = .haveData
-            return buffer
+            return input
         }
         guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { return }
-        let chunk = UnsafeBufferPointer(start: data, count: Int(out.frameLength))
-        lock.withLock { samples.append(contentsOf: chunk) }
+        let converted = UnsafeBufferPointer(start: data, count: Int(out.frameLength))
+        lock.withLock { samples.append(contentsOf: converted) }
     }
 }
 

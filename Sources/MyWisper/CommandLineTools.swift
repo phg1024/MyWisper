@@ -6,6 +6,7 @@ import SwiftUI
 ///   MyWisper --snapshot <dir> [en|zh]  renders the main views to PNG
 ///   MyWisper --make-icon <dir.iconset>
 ///   MyWisper --microphones             lists the inputs and the one a recording would use
+///   MyWisper --record <seconds> <out.wav> [microphone UID]   records like the hotkey does
 enum CommandLineTools {
     static func run(_ args: [String]) -> Bool {
         guard args.count > 1 else { return false }
@@ -22,10 +23,31 @@ enum CommandLineTools {
             for mic in Microphones.all() {
                 print("\(mic.uid == chosen?.uid ? "*" : " ") \(mic.name)\(mic.isBluetooth ? " (Bluetooth)" : "")\(mic.isVirtual ? " (virtual)" : "")")
             }
+        case "--record" where args.count > 3:
+            record(seconds: Double(args[2]) ?? 3, to: URL(fileURLWithPath: args[3]), uid: args.count > 4 ? args[4] : Preferences.shared.microphone)
         default:
             return false   // e.g. -NSDocumentRevisionsDebugMode from Xcode
         }
         return true
+    }
+
+    private static func record(seconds: Double, to url: URL, uid: String) {
+        let recorder = AudioRecorder()
+        let started = Date()
+        var first: TimeInterval?
+        recorder.onLevel = { _ in if first == nil { first = Date().timeIntervalSince(started) } }
+        do {
+            try recorder.start(device: Microphones.choose(uid: uid)?.device)
+        } catch {
+            print("error: \(error.localizedDescription)")
+            return
+        }
+        let opened = Date().timeIntervalSince(started)
+        RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+        let samples = recorder.stop()
+        try? AudioFile.wav(samples).write(to: url)
+        print(String(format: "opened in %.2f s, first sound after %.2f s, %.2f s recorded", opened, first ?? -1,
+                     Double(samples.count) / Double(ASREngine.sampleRate)))
     }
 
     private static func transcribe(_ args: [String]) {
