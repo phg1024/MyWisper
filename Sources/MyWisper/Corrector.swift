@@ -207,9 +207,10 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw Failure.decodeFailed }
         }
 
-        let answer = String(decoding: output, as: UTF8.self)
+        let raw = String(decoding: output, as: UTF8.self)
             .replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?text>/#, with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let answer = Self.respace(TextDiff.merge(text, raw, vet: Self.vet), like: text)
         // A correction keeps roughly the same length; anything else is the model answering or rewriting.
         // Short phrases get a few characters of slack ("啊lo下。" → "Aloha!").
         let ratio = Double(answer.count) / Double(max(text.count, 1))
@@ -217,6 +218,36 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             throw Failure.badAnswer
         }
         return answer
+    }
+
+    /// What the model may change. It still sometimes translates English it doesn't recognize
+    /// ("Eruption" → "喷发") and spaces out Chinese and English, whatever the prompt says; both are undone.
+    static func vet(_ original: String, _ corrected: String) -> String {
+        func han(_ s: String) -> Bool { s.unicodeScalars.contains { $0.properties.isIdeographic } }
+        func latin(_ s: String) -> Bool { s.contains { $0.isASCII && $0.isLetter } }
+        if latin(original) && !han(original) && han(corrected) { return original }
+        if original.allSatisfy(\.isWhitespace) && corrected.allSatisfy(\.isWhitespace) { return original }
+        var corrected = Substring(corrected)
+        if original.first?.isWhitespace != true { corrected = corrected.drop(while: \.isWhitespace) }
+        if original.last?.isWhitespace != true { while corrected.last?.isWhitespace == true { corrected = corrected.dropLast() } }
+        return String(corrected)
+    }
+
+    /// Drops a space between Chinese and English unless the recognized text had one in the same place.
+    static func respace(_ text: String, like original: String) -> String {
+        let chars = Array(text)
+        let had = original.lowercased()
+        var out = ""
+        for (i, ch) in chars.enumerated() {
+            if ch == " ", i > 0, i + 1 < chars.count {
+                let (l, r) = (chars[i - 1], chars[i + 1])
+                let isHan = { (c: Character) in c.unicodeScalars.contains { $0.properties.isIdeographic } }
+                let isLatin = { (c: Character) in c.isASCII && (c.isLetter || c.isNumber) }
+                if (isHan(l) && isLatin(r)) || (isLatin(l) && isHan(r)), !had.contains("\(l) \(r)".lowercased()) { continue }
+            }
+            out.append(ch)
+        }
+        return out
     }
 
     /// The model's own chat template, with thinking switched off for templates that have it.

@@ -171,6 +171,22 @@ enum TextDiff {
         return result
     }
 
+    /// `edited` with its changes vetted: `vet` gets each change as (original, edited) text and returns
+    /// what to put there.
+    static func merge(_ original: String, _ edited: String, vet: (String, String) -> String) -> String {
+        let a = tokens(original), b = tokens(edited)
+        guard a.count * b.count <= 400_000 else { return edited }
+        var out = ""
+        var i = 0
+        for hunk in diff(a, b) {
+            out += a[i..<hunk.start].joined()
+            let removed = hunk.removed.joined(), added = hunk.added.joined()
+            out += vet(removed, added)
+            i = hunk.start + hunk.removed.count
+        }
+        return out + a[i...].joined()
+    }
+
     /// English words and numbers as one token each; every other character on its own.
     static func tokens(_ text: String) -> [String] {
         var tokens: [String] = []

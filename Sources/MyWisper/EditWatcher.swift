@@ -1,5 +1,8 @@
 import AppKit
 import ApplicationServices
+import os
+
+private let log = Logger(subsystem: "com.peihongguo.MyWisper", category: "learning")
 
 /// After a paste, watches the text field it went into for a little while. If the user fixes words in
 /// what was just typed, reports the typed and fixed text. Reads only the focused field, through
@@ -42,13 +45,17 @@ final class EditWatcher {
         timer = nil
         guard let watch else { return }
         self.watch = nil
+        log.notice("watch ended, edited: \(watch.latest != watch.typed)")
         if watch.latest != watch.typed { watch.onEdit(watch.latest) }
     }
 
     private func attach(typed: String, onEdit: @escaping (String) -> Void) {
         pending = nil
         guard let element = focusedElement(), !isSecure(element),
-              let value = stringValue(of: element), value.utf16.count < 100_000 else { return }
+              let value = stringValue(of: element), value.utf16.count < 100_000 else {
+            log.notice("no readable text field has focus")
+            return
+        }
         // The caret sits right after what we pasted; fall back to the last place the text appears.
         let utf16 = value.utf16
         var range: Range<String.Index>?
@@ -57,7 +64,11 @@ final class EditWatcher {
             let s = utf16.index(e, offsetBy: -typed.utf16.count)
             if value[s..<e] == typed { range = s..<e }
         }
-        guard let range = range ?? value.range(of: typed, options: .backwards) else { return }
+        guard let range = range ?? value.range(of: typed, options: .backwards) else {
+            log.notice("pasted text not found in the focused field")
+            return
+        }
+        log.notice("watching the focused field")
         watch = Watch(element: element, typed: typed, before: String(value[..<range.lowerBound]), after: String(value[range.upperBound...]),
                       started: Date(), onEdit: onEdit, latest: typed, candidate: typed)
         timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -74,6 +85,8 @@ final class EditWatcher {
         guard value.count >= watch.before.count + watch.after.count,
               value.hasPrefix(watch.before), value.hasSuffix(watch.after) else { return finish() }
         let middle = String(value.dropFirst(watch.before.count).dropLast(watch.after.count))
+        // Gone altogether: sent (chat boxes empty themselves) or deleted. Keep the last version seen.
+        guard !middle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return finish() }
         if middle == watch.candidate { watch.latest = middle } else { watch.candidate = middle }
         self.watch = watch
     }
