@@ -16,7 +16,9 @@ final class EditWatcher {
         let after: String
         let started: Date
         let onEdit: (String) -> Void
+        /// The user's version, once it has stayed the same for two polls; half-typed words never get here.
         var latest: String
+        var candidate: String
     }
 
     private var watch: Watch?
@@ -57,8 +59,8 @@ final class EditWatcher {
         }
         guard let range = range ?? value.range(of: typed, options: .backwards) else { return }
         watch = Watch(element: element, typed: typed, before: String(value[..<range.lowerBound]), after: String(value[range.upperBound...]),
-                      started: Date(), onEdit: onEdit, latest: typed)
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+                      started: Date(), onEdit: onEdit, latest: typed, candidate: typed)
+        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
     }
@@ -71,8 +73,8 @@ final class EditWatcher {
         // The text around ours is unchanged, so what's between is the user's version of ours.
         guard value.count >= watch.before.count + watch.after.count,
               value.hasPrefix(watch.before), value.hasSuffix(watch.after) else { return finish() }
-        let middle = value.dropFirst(watch.before.count).dropLast(watch.after.count)
-        watch.latest = String(middle)
+        let middle = String(value.dropFirst(watch.before.count).dropLast(watch.after.count))
+        if middle == watch.candidate { watch.latest = middle } else { watch.candidate = middle }
         self.watch = watch
     }
 
