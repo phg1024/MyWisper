@@ -77,6 +77,10 @@ final class EditWatcher {
     }
 
     private func focusedElement() -> AXUIElement? {
+        // Electron apps (Slack, VS Code, Claude...) only build their accessibility tree when asked.
+        if let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != getpid() {
+            AXUIElementSetAttributeValue(AXUIElementCreateApplication(app.processIdentifier), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        }
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as CFString, &focused) == .success,
               let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }

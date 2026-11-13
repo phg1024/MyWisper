@@ -127,9 +127,21 @@ enum TextDiff {
     static func fixes(from typed: String, to edited: String) -> [(heard: String, meant: String)] {
         let a = tokens(typed), b = tokens(edited)
         guard typed != edited, !a.isEmpty, a.count * b.count <= 400_000 else { return [] }
-        let hunks = diff(a, b)
-        let changed = hunks.reduce(0) { $0 + max($1.removed.count, $1.added.count) }
-        guard changed * 2 <= a.count, hunks.count <= 6 else { return [] }
+        let raw = diff(a, b)
+        let changed = raw.reduce(0) { $0 + max($1.removed.count, $1.added.count) }
+        // Changes separated by just a space are one change ("The Luga Halla" → "beluga Halluga").
+        var hunks: [Hunk] = []
+        for hunk in raw {
+            if let last = hunks.last, a[(last.start + last.removed.count)..<hunk.start].allSatisfy({ $0.allSatisfy(\.isWhitespace) }) {
+                let gap = Array(a[(last.start + last.removed.count)..<hunk.start])
+                hunks[hunks.count - 1].removed += gap + hunk.removed
+                hunks[hunks.count - 1].added += gap + hunk.added
+            } else {
+                hunks.append(hunk)
+            }
+        }
+        // Short phrases get some slack: fixing two words of "The Luga Halla." is still a fix.
+        guard changed * 2 <= a.count || changed <= 4, hunks.count <= 6 else { return [] }
 
         var result: [(String, String)] = []
         for hunk in hunks where !hunk.removed.isEmpty && !hunk.added.isEmpty {
