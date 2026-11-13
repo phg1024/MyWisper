@@ -87,6 +87,13 @@ final class AppModel: ObservableObject {
     func edit(_ entry: HistoryEntry, to text: String) {
         LearnedFixes.shared.learn(typed: entry.text, edited: text, weight: LearnedFixes.confirmAt)
         history.update(entry.id, text: text)
+        TrainingData.shared.update(entry.id, text: text)
+    }
+
+    /// Deleting a dictation also deletes its recording, if one was kept for training.
+    func delete(_ entry: HistoryEntry) {
+        history.delete(entry)
+        TrainingData.shared.remove(entry.id)
     }
 
     func shutDown() {
@@ -298,7 +305,11 @@ final class AppModel: ObservableObject {
                     let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
                     corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized))
                 }
-                let text = deliver(transcript, text: corrected ?? recognized)
+                let (text, id) = deliver(transcript, text: corrected ?? recognized)
+                if prefs.collectTraining, let id {
+                    TrainingData.shared.add(id: id, audio: samples, recognized: transcript.text, text: text,
+                                            label: corrected.map { $0 != recognized } == true ? .modelChanged : .unchanged)
+                }
                 if prefs.saveRecordings {
                     RecordingArchive.save(samples, recognized: transcript.text, corrected: corrected, typed: text,
                                           language: prefs.language)
@@ -334,26 +345,30 @@ final class AppModel: ObservableObject {
         if Date().timeIntervalSince(recordingStart) > Self.maxRecording { stop() }
     }
 
-    /// Types or copies the text and returns it.
+    /// Types or copies the text; returns it and its history entry.
     @discardableResult
-    private func deliver(_ transcript: Transcript, text recognized: String) -> String {
+    private func deliver(_ transcript: Transcript, text recognized: String) -> (String, UUID?) {
         var text = recognized
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
-            return text
+            return (text, nil)
         }
         let id = history.add(transcript, text: text)
         let pasted = prefs.autoPaste && TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard)
         if !pasted { TextInjector.copy(text) }
         if pasted && prefs.learnFromEdits {
             EditWatcher.shared.begin(typed: text) { [weak self] edited in
-                guard !LearnedFixes.shared.learn(typed: text, edited: edited).isEmpty else { return }
+                let fixes = LearnedFixes.shared.learn(typed: text, edited: edited)
+                guard !fixes.isEmpty else { return }
                 self?.history.update(id, text: edited)
+                // Only the fixed words: anything the user went on to type isn't what they said.
+                TrainingData.shared.update(id, text: LearnedFixes.apply(
+                    fixes.map { LearnedFix(heard: $0.heard, meant: $0.meant, count: 0, lastSeen: Date()) }, to: text))
             }
         }
         if !isRecording { hud.flash(.done(text, pasted: pasted)) }
-        return text
+        return (text, id)
     }
 
     // MARK: Menu text

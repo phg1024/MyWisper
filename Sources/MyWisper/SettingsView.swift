@@ -16,7 +16,9 @@ private struct GeneralSettings: View {
     @EnvironmentObject var prefs: Preferences
     @EnvironmentObject var history: HistoryStore
     @ObservedObject private var learned = LearnedFixes.shared
+    @ObservedObject private var training = TrainingData.shared
     @State private var confirmClear = false
+    @State private var confirmClearTraining = false
     @State private var showLearned = false
 
     var body: some View {
@@ -112,10 +114,26 @@ private struct GeneralSettings: View {
                 LabeledContent(t("已学到 \(learned.fixes.count) 处", "\(learned.fixes.count) learned")) {
                     Button(t("查看…", "Show…")) { showLearned = true }
                 }
+                Toggle(isOn: $prefs.collectTraining) {
+                    Text(t("保存录音，用来训练语音模型", "Keep recordings to train the speech model"))
+                    Text(t("每次听写的录音和你最后确认的文字存在本机，以后用来让模型适应你的声音。每分钟约 2 MB。", "Each dictation’s audio and the text you settled on stay on this Mac, to adapt the model to your voice later. About 2 MB a minute."))
+                }
+                if prefs.collectTraining || !training.samples.isEmpty {
+                    LabeledContent(t("已有 \(training.samples.count) 段，\(Int(training.totalDuration / 60)) 分钟", "\(training.samples.count) recordings, \(Int(training.totalDuration / 60)) min")) {
+                        HStack {
+                            Button(t("在访达中显示", "Show in Finder")) {
+                                try? FileManager.default.createDirectory(at: TrainingData.directory, withIntermediateDirectories: true,
+                                                                         attributes: [.posixPermissions: 0o700])
+                                NSWorkspace.shared.activateFileViewerSelecting([TrainingData.directory])
+                            }
+                            Button(t("清空…", "Clear…")) { confirmClearTraining = true }.disabled(training.samples.isEmpty)
+                        }
+                    }
+                }
             } header: {
                 Text(t("学习", "Learning"))
             } footer: {
-                Text(t("也可以在 全部记录 里右键一条 › 改正。只记改动的词，不保存周围的文字；输入密码的地方不会读。", "You can also right-click an entry in All history › Correct. Only the changed words are kept, never the text around them; password fields are never read."))
+                Text(t("也可以在 全部记录 里右键一条 › 改正。学习只记改动的词，不保存周围的文字；输入密码的地方不会读。训练录音只在你打开时才保存，删掉一条历史记录会连带删掉它的录音。", "You can also right-click an entry in All history › Correct. Learning keeps only the changed words, never the text around them; password fields are never read. Training recordings are kept only when turned on; deleting a history entry deletes its recording too."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -158,6 +176,11 @@ private struct GeneralSettings: View {
         .formStyle(.grouped)
         .frame(height: 560)
         .sheet(isPresented: $showLearned) { LearnedFixesView() }
+        .confirmationDialog(t("删除全部 \(training.samples.count) 段训练录音？", "Delete all \(training.samples.count) training recordings?"), isPresented: $confirmClearTraining) {
+            Button(t("删除", "Delete"), role: .destructive) { training.clear() }
+        } message: {
+            Text(t("这一步不能撤销。", "This can’t be undone."))
+        }
         .confirmationDialog(t("清空全部 \(history.entries.count) 条历史记录？", "Clear all \(history.entries.count) history entries?"), isPresented: $confirmClear) {
             Button(t("清空", "Clear"), role: .destructive) { history.clear() }
         } message: {
@@ -315,7 +338,7 @@ struct HistoryWindow: View {
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(shown) { entry in
-                            HistoryRow(entry: entry, compact: false, onDelete: { history.delete(entry) },
+                            HistoryRow(entry: entry, compact: false, onDelete: { model.delete(entry) },
                                        onEdit: { editing = entry })
                         }
                     }

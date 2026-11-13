@@ -61,7 +61,7 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 - 你说的话不会上网。唯一的联网是可选的：打开 **纠错**（设置 › 通用）并点「下载」后，MyWisper 从 Hugging Face 下载一次 Qwen 模型（固定版本，校验 SHA-256）。纠错本身在 App 里用 llama.cpp 运行。除此之外 MyWisper 不建立任何连接，可以用 `lsof -i -a -p $(pgrep -x MyWisper)` 自己查。
 - 用沙箱禁掉网络后识别结果完全一样，模型就在 App 里。
 - 识别出的文字写进剪贴板时标成「仅本机」，不会经「通用剪贴板」同步到你的其他设备。粘贴后会恢复原来的剪贴板（可以关掉）。
-- 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）、从你的改正里学到的词 `learned.json`（只有改动的词）和偏好设置。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（排查识别问题时用，存在历史记录旁边的 `Recordings/` 里）。
+- 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）、从你的改正里学到的词 `learned.json`（只有改动的词）和偏好设置。打开 设置 › 通用 › **保存录音，用来训练语音模型** 后，每次听写的录音和最后的文字会存在 `Training/` 里，用来让模型适应你的声音。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（排查识别问题时用，存在历史记录旁边的 `Recordings/` 里）。
 - 「关于」页里的 GitHub、Sponsor、Buy Me a Coffee 按钮，只有你点了才会用浏览器打开。
 
 ## 从源码构建
