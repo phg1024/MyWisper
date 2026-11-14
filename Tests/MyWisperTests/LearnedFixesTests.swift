@@ -61,6 +61,21 @@ struct LearnedFixesTests {
         #expect(learned.terms == ["dictation", "push"])
     }
 
+    @Test func keepIsVocabularyAndTermsButNotWhatAFixChanges() {
+        let learned = LearnedFixes(url: nil)
+        learned.learn(typed: "记得不许上去", edited: "记得push上去")
+        learned.learn(typed: "拿push打支架", edited: "拿ender打支架")
+        #expect(learned.keep(vocabulary: "Bambu, OrcaSlicer，Kuma\n Ender ") == ["Bambu", "OrcaSlicer", "Kuma", "Ender"])
+        #expect(learned.keep(vocabulary: "") == ["ender"])   // push is what a fix changes
+    }
+
+    @Test func containsTerm() {
+        #expect(TextDiff.contains("拿Ender打支架", term: "ender"))
+        #expect(!TextDiff.contains("rendering", term: "ender"))
+        #expect(TextDiff.contains("接上dwin的屏", term: "dwin"))
+        #expect(TextDiff.contains("把板清了", term: "板"))
+    }
+
     @Test func fixesSurviveARestart() throws {
         defer { try? FileManager.default.removeItem(at: url) }
         let learned = LearnedFixes(url: url)

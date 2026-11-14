@@ -304,7 +304,8 @@ final class AppModel: ObservableObject {
                 var corrected: String?
                 if prefs.correction, !recognized.isEmpty {
                     let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
-                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized))
+                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized),
+                                                                    keep: learned.keep(vocabulary: prefs.vocabulary))
                 }
                 let (text, id) = deliver(transcript, text: corrected ?? recognized)
                 if prefs.collectTraining, let id {

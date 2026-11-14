@@ -98,6 +98,16 @@ final class LearnedFixes: ObservableObject {
         return fixes.sorted { $0.count > $1.count }.map(\.meant).filter { seen.insert($0).inserted }
     }
 
+    /// Words the corrector must leave where they are: the user's vocabulary and what they corrected to,
+    /// except what a fix of theirs says to change.
+    func keep(vocabulary: String) -> [String] {
+        let words = vocabulary.split(whereSeparator: { ",，、;；\n".contains($0) })
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let changed = Set(fixes.map { $0.heard.lowercased() })
+        var seen = Set<String>()
+        return (words + terms).filter { !changed.contains($0.lowercased()) && seen.insert($0.lowercased()).inserted }
+    }
+
     func delete(_ fix: LearnedFix) {
         fixes.removeAll { $0.id == fix.id }
         save()
@@ -193,6 +203,13 @@ enum TextDiff {
     /// What they added was them writing more, and what they deleted they did say.
     static func substitutions(from typed: String, to edited: String) -> String {
         merge(typed, edited) { removed, added in removed.isEmpty || added.isEmpty ? removed : added }
+    }
+
+    /// Whether `text` has `term` in it: as a whole word, in any case, when the term is English.
+    static func contains(_ text: String, term: String) -> Bool {
+        guard term.allSatisfy(\.isASCII) else { return text.contains(term) }
+        let pattern = "(?<![A-Za-z0-9])" + NSRegularExpression.escapedPattern(for: term) + "(?![A-Za-z0-9])"
+        return text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     /// English words and numbers as one token each; every other character on its own.

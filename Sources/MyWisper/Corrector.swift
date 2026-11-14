@@ -163,11 +163,11 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
 
     // MARK: Correction
 
-    /// `learned`: the user's earlier fixes, "heard → meant; ...".
-    func correct(_ text: String, vocabulary: String, learned: String = "") async throws -> String {
+    /// `learned`: the user's earlier fixes, "heard → meant; ...". `keep`: words the answer may not take out.
+    func correct(_ text: String, vocabulary: String, learned: String = "", keep: [String] = []) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.run(text, vocabulary: vocabulary, learned: learned) })
+                continuation.resume(with: Result { try self.run(text, vocabulary: vocabulary, learned: learned, keep: keep) })
             }
         }
     }
@@ -180,7 +180,7 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func run(_ text: String, vocabulary: String, learned: String) throws -> String {
+    private func run(_ text: String, vocabulary: String, learned: String, keep: [String]) throws -> String {
         guard let model, let context, let sampler else { throw Failure.notReady }
         let vocab = llama_model_get_vocab(model)
         var system = Self.instructions
@@ -207,15 +207,22 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw Failure.decodeFailed }
         }
 
-        guard let answer = Self.answer(String(decoding: output, as: UTF8.self), for: text) else { throw Failure.badAnswer }
+        guard let answer = Self.answer(String(decoding: output, as: UTF8.self), for: text, keep: keep) else { throw Failure.badAnswer }
         return answer
     }
 
-    /// The model's output as a correction of `text`, or nil when it is something else.
-    static func answer(_ output: String, for text: String) -> String? {
+    /// The model's output as a correction of `text`, or nil when it is something else. A change that
+    /// takes out one of the `keep` words is undone: given the user's own terms as hints, the model
+    /// sometimes swaps one that was heard right for another ("拿ender打支架" → "拿push打支架").
+    static func answer(_ output: String, for text: String, keep: [String] = []) -> String? {
         let raw = output.replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?text>/#, with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let answer = respace(TextDiff.merge(text, raw, vet: vet), like: text)
+        let merged = TextDiff.merge(text, raw) { original, corrected in
+            let corrected = vet(original, corrected)
+            let dropsATerm = keep.contains { TextDiff.contains(original, term: $0) && !TextDiff.contains(corrected, term: $0) }
+            return dropsATerm ? original : corrected
+        }
+        let answer = respace(merged, like: text)
         // A correction keeps roughly the same length; anything else is the model answering or rewriting.
         // Short phrases get a few characters of slack ("啊lo下。" → "Aloha!").
         let ratio = Double(answer.count) / Double(max(text.count, 1))

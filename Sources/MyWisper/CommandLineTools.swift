@@ -83,7 +83,8 @@ enum CommandLineTools {
                     if correct {
                         let start = Date()
                         let fixed = try await Corrector.shared.correct(text, vocabulary: vocabulary,
-                                                                       learned: LearnedFixes.shared.hints(for: text))
+                                                                       learned: LearnedFixes.shared.hints(for: text),
+                                                                       keep: LearnedFixes.shared.keep(vocabulary: vocabulary))
                         print(String(format: "  corrected in %.0f ms | %@", Date().timeIntervalSince(start) * 1000, fixed))
                     }
                 } catch {

@@ -25,7 +25,7 @@ struct TrainingSample: Codable, Identifiable {
 @MainActor
 final class TrainingData: ObservableObject {
     static let shared = TrainingData()
-    static let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    nonisolated static let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("MyWisper/Training")
 
     @Published private(set) var samples: [TrainingSample] = []

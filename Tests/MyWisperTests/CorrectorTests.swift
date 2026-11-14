@@ -40,6 +40,14 @@ struct CorrectorTests {
         #expect(Corrector.answer("", for: "改完记得不许到远端。") == nil)
     }
 
+    @Test func answerKeepsTheUsersTermsWhereTheyWere() {
+        let keep = ["ender", "push", "commit"]
+        #expect(Corrector.answer("<text>拿push打支架</text>", for: "拿ender打支架", keep: keep) == "拿ender打支架")
+        #expect(Corrector.answer("<text>拿Ender打支架</text>", for: "拿ender打支架", keep: keep) == "拿Ender打支架")
+        #expect(Corrector.answer("<text>改完记得push到远端</text>", for: "改完记得不许到远端", keep: keep) == "改完记得push到远端")
+        #expect(Corrector.answer("<text>用dwin的屏</text>", for: "用对应的屏", keep: ["dwin"]) == "用dwin的屏")
+    }
+
     @Test func answerAllowsShortPhrasesSomeSlack() {
         #expect(Corrector.answer("Aloha!", for: "啊lo下。") == "Aloha!")
     }
