@@ -59,6 +59,11 @@ struct TextDiffTests {
         #expect(fixes("放到github上", "放到GitHub上") == ["github → GitHub"])
     }
 
+    @Test func punctuationOnlyIsNotAFix() {
+        #expect(fixes("好吧。", "好吧！") == [])
+        #expect(fixes("你好，我是谁", "你好。我是谁") == [])
+    }
+
     @Test func mergeAsksVetAboutEveryChange() {
         var seen: [String] = []
         let merged = TextDiff.merge("我用派打印", "我用pi打印了") { original, edited in

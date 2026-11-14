@@ -145,6 +145,8 @@ enum TextDiff {
 
         var result: [(String, String)] = []
         for hunk in hunks where !hunk.removed.isEmpty && !hunk.added.isEmpty {
+            // Punctuation and spacing are style ("好吧。" → "好吧！"), not a mishearing.
+            guard (hunk.removed + hunk.added).joined().contains(where: { $0.isLetter || $0.isNumber }) else { continue }
             var removed = hunk.removed, added = hunk.added
             var start = hunk.start, end = hunk.start + removed.count
             // A single Chinese character means little on its own (道 → 岛); keep a neighbour for context (大道 → 大岛).
