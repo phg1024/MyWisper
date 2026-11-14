@@ -227,9 +227,11 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
         let answer = respace(merged, like: text)
         // A correction keeps roughly the same length; anything else is the model answering or rewriting.
-        // Short phrases get a few characters of slack ("啊lo下。" → "Aloha!").
-        let ratio = Double(answer.count) / Double(max(text.count, 1))
-        guard !answer.isEmpty, (ratio > 0.6 && ratio < 1.5) || abs(answer.count - text.count) <= 6 else { return nil }
+        // Counted in words, an English word as one, so 肯贝 → commit is no longer. Short phrases get a few
+        // words of slack ("啊lo下。" → "Aloha!").
+        let (new, old) = (TextDiff.tokens(answer).count, TextDiff.tokens(text).count)
+        let ratio = Double(new) / Double(max(old, 1))
+        guard !answer.isEmpty, (ratio > 0.6 && ratio < 1.5) || abs(new - old) <= 6 else { return nil }
         return answer
     }
 

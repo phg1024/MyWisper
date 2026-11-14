@@ -48,6 +48,10 @@ struct CorrectorTests {
         #expect(Corrector.answer("<text>用dwin的屏</text>", for: "用对应的屏", keep: ["dwin"]) == "用dwin的屏")
     }
 
+    @Test func answerCountsEnglishWordsAsWordsNotLetters() {
+        #expect(Corrector.answer("还没有 push 到远端的 commit 有几个？", for: "还没有铺到远端的肯贝有几个？") == "还没有push到远端的commit有几个？")
+    }
+
     @Test func answerAllowsShortPhrasesSomeSlack() {
         #expect(Corrector.answer("Aloha!", for: "啊lo下。") == "Aloha!")
     }
