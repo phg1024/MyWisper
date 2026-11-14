@@ -121,7 +121,10 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             queue.async { self.unload() }
             return
         }
-        if case .downloading = state { return }
+        if case .downloading = state {
+            if download?.taskDescription == choice.rawValue { return }
+            cancelDownload()   // the user picked another model meanwhile
+        }
         guard choice.isDownloaded else {
             state = .needsDownload
             queue.async { self.unload() }

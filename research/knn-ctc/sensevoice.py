@@ -13,7 +13,7 @@ import onnxruntime as ort
 import sentencepiece as spm
 import soundfile as sf
 
-MODEL_DIR = Path.home() / "Code/MyWisper/models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
+MODEL_DIR = Path(__file__).resolve().parents[2] / "models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17"
 # SentencePiece model from https://huggingface.co/FunAudioLLM/SenseVoiceSmall (not in the sherpa-onnx export).
 BPE_MODEL = Path(__file__).parent / "chn_jpn_yue_eng_ko_spectok.bpe.model"
 ENCODER_OUT = "/encoder/tp_norm/Add_1_output_0"

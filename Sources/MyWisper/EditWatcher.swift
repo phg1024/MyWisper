@@ -51,6 +51,10 @@ final class EditWatcher {
 
     private func attach(typed: String, onEdit: @escaping (String) -> Void) {
         pending = nil
+        // Electron apps (Slack, VS Code, Claude...) only build their accessibility tree when asked.
+        if let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != getpid() {
+            AXUIElementSetAttributeValue(AXUIElementCreateApplication(app.processIdentifier), "AXManualAccessibility" as CFString, kCFBooleanTrue)
+        }
         guard let element = focusedElement(), !isSecure(element),
               let value = stringValue(of: element), value.utf16.count < 100_000 else {
             log.notice("no readable text field has focus")
@@ -92,10 +96,6 @@ final class EditWatcher {
     }
 
     private func focusedElement() -> AXUIElement? {
-        // Electron apps (Slack, VS Code, Claude...) only build their accessibility tree when asked.
-        if let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != getpid() {
-            AXUIElementSetAttributeValue(AXUIElementCreateApplication(app.processIdentifier), "AXManualAccessibility" as CFString, kCFBooleanTrue)
-        }
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as CFString, &focused) == .success,
               let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }

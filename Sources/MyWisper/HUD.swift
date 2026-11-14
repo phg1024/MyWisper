@@ -164,7 +164,6 @@ struct HUDView: View {
 
     private var hint: String {
         if model.latched || prefs.trigger == .toggle { return t("再按 \(prefs.hotkey.keycap) 结束 · esc 取消", "Press \(prefs.hotkey.keycap) again to finish · esc to cancel") }
-        if prefs.trigger == .pushToTalk { return t("松开结束 · esc 取消", "Release to finish · esc to cancel") }
         return t("松开结束 · esc 取消", "Release to finish · esc to cancel")
     }
 }
