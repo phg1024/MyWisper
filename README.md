@@ -77,6 +77,8 @@ git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
 
 The first build creates a self-signed code signing certificate in `.signing/` (not in git). macOS ties the Microphone and Accessibility permissions to that certificate, so later builds keep them. Don't delete it.
 
+Tests: `swift test` (a few seconds; `build.sh` runs it first). `MYWISPER_LLM_TESTS=1 swift test` also runs the correction model on cases it got wrong before (needs a model downloaded in Settings). What can't be tested automatically (the hotkey, pasting, microphones) is in [docs/manual-checks.md](docs/manual-checks.md).
+
 Other tools: `MyWisper --transcribe a.wav [--language zh]` transcribes files; `MyWisper --snapshot <dir> [en|zh]` renders the UI to PNGs. `./release.sh 1.0.0` makes a release DMG (notarized when a Developer ID certificate is available).
 
 ## Support

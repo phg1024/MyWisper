@@ -22,7 +22,8 @@ DEVELOPER_ID=${DEVELOPER_ID:-$(security find-identity -v -p codesigning \
 [ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "commit your changes first"; exit 1; }
 if [ -n "$DEVELOPER_ID" ]; then echo "signing as: $DEVELOPER_ID (will notarize)"; else echo "no Developer ID: self-signed, not notarized"; fi
 
-DEVELOPER_ID="$DEVELOPER_ID" VERSION="$VERSION" ./build.sh
+# Including the correction model's tests, which load it (needs it downloaded).
+MYWISPER_LLM_TESTS=1 DEVELOPER_ID="$DEVELOPER_ID" VERSION="$VERSION" ./build.sh
 APP=build/MyWisper.app
 codesign --verify --deep --strict "$APP"
 ! grep -rqaF "$HOME" "$APP/Contents/MacOS" "$APP/Contents/Frameworks" \

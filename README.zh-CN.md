@@ -77,6 +77,8 @@ git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
 
 第一次构建会在 `.signing/` 生成一张自签名的代码签名证书（不进 git）。macOS 把麦克风和辅助功能权限跟这张证书绑定，所以以后重新构建权限都还在。别删它。
 
+测试：`swift test`（几秒钟，`build.sh` 会先跑一遍）。`MYWISPER_LLM_TESTS=1 swift test` 还会让纠错模型跑一遍以前出过错的例子（要先在设置里下载模型）。没法自动测的部分（热键、粘贴、麦克风）见 [docs/manual-checks.md](docs/manual-checks.md)。
+
 其他：`MyWisper --transcribe a.wav [--language zh]` 识别音频文件；`MyWisper --snapshot <目录> [en|zh]` 把界面渲染成 PNG。`./release.sh 1.0.0` 生成发布用的 DMG（钥匙串里有 Developer ID 证书时会自动公证）。
 
 ## 支持

@@ -6,6 +6,7 @@
 # Signing: by default a self-signed certificate (for this Mac only). With DEVELOPER_ID="Developer ID
 # Application: Name (TEAMID)" it signs for distribution instead: hardened runtime, secure timestamp,
 # entitlements. VERSION=1.2.0 sets the version shown in Finder and About. release.sh does both.
+# The tests run first (swift test, a few seconds); SKIP_TESTS=1 skips them.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -15,6 +16,7 @@ MODEL=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
 [ -f "$MODEL/model.int8.onnx" ] || { echo "missing $MODEL/model.int8.onnx: run ./fetch-deps.sh"; exit 1; }
 [ -f Vendor/llama/lib/libllama.a ] || { echo "missing Vendor/llama: run ./fetch-deps.sh"; exit 1; }
 
+[ "${SKIP_TESTS:-}" = 1 ] || swift test --quiet
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/MyWisper"
 
