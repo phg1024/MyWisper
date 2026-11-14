@@ -207,16 +207,19 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw Failure.decodeFailed }
         }
 
-        let raw = String(decoding: output, as: UTF8.self)
-            .replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?text>/#, with: "")
+        guard let answer = Self.answer(String(decoding: output, as: UTF8.self), for: text) else { throw Failure.badAnswer }
+        return answer
+    }
+
+    /// The model's output as a correction of `text`, or nil when it is something else.
+    static func answer(_ output: String, for text: String) -> String? {
+        let raw = output.replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?text>/#, with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let answer = Self.respace(TextDiff.merge(text, raw, vet: Self.vet), like: text)
+        let answer = respace(TextDiff.merge(text, raw, vet: vet), like: text)
         // A correction keeps roughly the same length; anything else is the model answering or rewriting.
         // Short phrases get a few characters of slack ("啊lo下。" → "Aloha!").
         let ratio = Double(answer.count) / Double(max(text.count, 1))
-        guard !answer.isEmpty, (ratio > 0.6 && ratio < 1.5) || abs(answer.count - text.count) <= 6 else {
-            throw Failure.badAnswer
-        }
+        guard !answer.isEmpty, (ratio > 0.6 && ratio < 1.5) || abs(answer.count - text.count) <= 6 else { return nil }
         return answer
     }
 
