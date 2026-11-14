@@ -67,7 +67,7 @@ final class AppModel: ObservableObject {
         hotkeys.onDown = { [weak self] in MainActor.assumeIsolated { self?.hotkeyDown() } }
         hotkeys.onUp = { [weak self] in MainActor.assumeIsolated { self?.hotkeyUp() } }
         hotkeys.onChord = { [weak self] in MainActor.assumeIsolated { self?.hotkeyChord() } }
-        hotkeys.onEscape = { [weak self] in MainActor.assumeIsolated { self?.cancel() } }
+        hotkeys.onEscape = { [weak self] in MainActor.assumeIsolated { self?.cancel() ?? false } }
         if accessibilityGranted { hotkeyActive = hotkeys.start() }
 
         prefs.$hotkey.dropFirst().sink { [weak self] key in self?.hotkeys.hotkey = key }.store(in: &subscriptions)
@@ -322,12 +322,15 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func cancel(silently: Bool = false) {
+    /// Returns whether a recording was cancelled.
+    @discardableResult
+    func cancel(silently: Bool = false) -> Bool {
         pendingStart?.cancel()
         pendingStart = nil
-        guard isRecording else { return }
+        guard isRecording else { return false }
         _ = finishRecording()
         if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
+        return true
     }
 
     private func finishRecording() -> [Float] {

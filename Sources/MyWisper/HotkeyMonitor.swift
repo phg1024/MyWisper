@@ -2,14 +2,16 @@ import CoreGraphics
 import Foundation
 
 /// Watches one modifier key system-wide through a Quartz event tap on the main run loop,
-/// so every callback arrives on the main thread. Events are always passed through untouched.
+/// so every callback arrives on the main thread. Events pass through untouched, except an esc that
+/// cancelled a recording: it was meant for MyWisper, not for the app in front (Vim, a dialog).
 final class HotkeyMonitor {
     var hotkey: Hotkey { didSet { isDown = false } }
     var onDown: (() -> Void)?
     var onUp: (() -> Void)?
     /// Another key, modifier or click while the hotkey is held: the user is typing a shortcut.
     var onChord: (() -> Void)?
-    var onEscape: (() -> Void)?
+    /// Returns true when the esc cancelled something; it then goes no further.
+    var onEscape: (() -> Bool)?
     /// While set, sees every key event first; returning true swallows it for the dictation logic.
     var onCapture: ((CGEventType, Int64, CGEventFlags) -> Bool)?
 
@@ -49,44 +51,47 @@ final class HotkeyMonitor {
         isDown = false
     }
 
-    fileprivate func handle(_ type: CGEventType, _ event: CGEvent) {
+    /// Returns true to swallow the event.
+    func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            return
+            return false
         default:
             break
         }
-        if event.getIntegerValueField(.eventSourceUserData) == TextInjector.eventMarker { return }   // our own ⌘V
+        if event.getIntegerValueField(.eventSourceUserData) == TextInjector.eventMarker { return false }   // our own ⌘V
         if let onCapture, type == .flagsChanged || type == .keyDown,
-           onCapture(type, event.getIntegerValueField(.keyboardEventKeycode), event.flags) { return }
+           onCapture(type, event.getIntegerValueField(.keyboardEventKeycode), event.flags) { return false }
 
         switch type {
         case .flagsChanged:
             let code = event.getIntegerValueField(.keyboardEventKeycode)
             if code == hotkey.keyCode {
                 let down = hotkey.isHeld(in: event.flags)
-                guard down != isDown else { return }
+                guard down != isDown else { return false }
                 isDown = down
                 down ? onDown?() : onUp?()
             } else if isDown {
                 onChord?()
             }
         case .keyDown:
-            if event.getIntegerValueField(.keyboardEventKeycode) == 53 { onEscape?() }
+            let cancelled = event.getIntegerValueField(.keyboardEventKeycode) == 53 && onEscape?() == true
             if isDown { onChord?() }
+            return cancelled
         case .leftMouseDown, .rightMouseDown:
             if isDown { onChord?() }
         default:
             break
         }
+        return false
     }
 }
 
 private func hotkeyTapCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent,
                                userInfo: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-    if let userInfo {
-        Unmanaged<HotkeyMonitor>.fromOpaque(userInfo).takeUnretainedValue().handle(type, event)
+    if let userInfo, Unmanaged<HotkeyMonitor>.fromOpaque(userInfo).takeUnretainedValue().handle(type, event) {
+        return nil
     }
     return Unmanaged.passUnretained(event)
 }

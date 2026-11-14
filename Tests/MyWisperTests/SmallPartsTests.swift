@@ -69,3 +69,45 @@ struct AudioFileTests {
         #expect(zip(samples, back).allSatisfy { abs($0 - $1) < 1e-3 })
     }
 }
+
+struct HotkeyMonitorTests {
+    func key(_ code: CGKeyCode, flags: CGEventFlags = []) -> CGEvent {
+        let event = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)!
+        event.flags = flags
+        return event
+    }
+
+    @Test func escThatCancelsGoesNoFurther() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        monitor.onEscape = { true }
+        #expect(monitor.handle(.keyDown, key(53)))
+        monitor.onEscape = { false }   // nothing to cancel: the app in front gets it
+        #expect(!monitor.handle(.keyDown, key(53)))
+        #expect(!monitor.handle(.keyDown, key(0)))
+    }
+
+    @Test func holdingAndReleasingTheHotkey() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        var calls: [String] = []
+        monitor.onDown = { calls.append("down") }
+        monitor.onUp = { calls.append("up") }
+        monitor.onChord = { calls.append("chord") }
+        let held = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x40)
+        #expect(!monitor.handle(.flagsChanged, key(61, flags: held)))
+        #expect(!monitor.handle(.keyDown, key(0, flags: held)))   // ⌥A: a shortcut, not dictation
+        #expect(!monitor.handle(.flagsChanged, key(61)))
+        #expect(calls == ["down", "chord", "up"])
+    }
+
+    @Test func ourOwnPasteIsIgnored() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        var chords = 0
+        monitor.onChord = { chords += 1 }
+        let held = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x40)
+        _ = monitor.handle(.flagsChanged, key(61, flags: held))
+        let paste = key(9, flags: .maskCommand)
+        paste.setIntegerValueField(.eventSourceUserData, value: TextInjector.eventMarker)
+        _ = monitor.handle(.keyDown, paste)
+        #expect(chords == 0)
+    }
+}
