@@ -364,8 +364,7 @@ final class AppModel: ObservableObject {
                 guard !fixes.isEmpty else { return }
                 self?.history.update(id, text: edited)
                 // Only the fixed words: anything the user went on to type isn't what they said.
-                TrainingData.shared.update(id, text: LearnedFixes.apply(
-                    fixes.map { LearnedFix(heard: $0.heard, meant: $0.meant, count: 0, lastSeen: Date()) }, to: text))
+                TrainingData.shared.update(id, text: TextDiff.substitutions(from: text, to: edited))
             }
         }
         if !isRecording { hud.flash(.done(text, pasted: pasted)) }

@@ -189,6 +189,12 @@ enum TextDiff {
         return out + a[i...].joined()
     }
 
+    /// `typed` with just the user's substitutions, where they made them: the training label for the audio.
+    /// What they added was them writing more, and what they deleted they did say.
+    static func substitutions(from typed: String, to edited: String) -> String {
+        merge(typed, edited) { removed, added in removed.isEmpty || added.isEmpty ? removed : added }
+    }
+
     /// English words and numbers as one token each; every other character on its own.
     static func tokens(_ text: String) -> [String] {
         var tokens: [String] = []

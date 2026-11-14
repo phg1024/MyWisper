@@ -64,6 +64,14 @@ struct TextDiffTests {
         #expect(fixes("你好，我是谁", "你好。我是谁") == [])
     }
 
+    @Test func trainingLabelTakesOnlyTheFixes() {
+        // Fixed one of two: the other one was right.
+        #expect(TextDiff.substitutions(from: "对应的屏幕，对应接口", to: "dwin的屏幕，对应接口") == "dwin的屏幕，对应接口")
+        // Went on typing, or deleted a word: neither is what was said.
+        #expect(TextDiff.substitutions(from: "用派打", to: "用pi打，然后发给你") == "用pi打")
+        #expect(TextDiff.substitutions(from: "嗯用派打", to: "用pi打") == "嗯用pi打")
+    }
+
     @Test func mergeAsksVetAboutEveryChange() {
         var seen: [String] = []
         let merged = TextDiff.merge("我用派打印", "我用pi打印了") { original, edited in
