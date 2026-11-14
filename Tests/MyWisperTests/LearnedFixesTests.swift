@@ -76,6 +76,18 @@ struct LearnedFixesTests {
         #expect(TextDiff.contains("把板清了", term: "板"))
     }
 
+    @Test func termsLeaveOutTheNeighbourKeptForContext() {
+        let learned = LearnedFixes(url: nil)
+        learned.learn(typed: "昨天没有铺过去", edited: "昨天没有push过去")
+        learned.learn(typed: "设计很贵的", edited: "设计很weird的")
+        #expect(learned.fixes.map(\.heard) == ["有铺", "很贵"])
+        #expect(learned.terms == ["push", "weird"])
+        #expect(learned.keep(vocabulary: "") == ["push", "weird"])
+        #expect(learned.fixes[0].core == ("铺", "push"))
+        #expect(LearnedFix(heard: "dation", meant: "dictation", count: 1, lastSeen: .now).core == ("dation", "dictation"))
+        #expect(LearnedFix(heard: "The Luga Halla", meant: "beluga Halluga", count: 1, lastSeen: .now).core == ("The Luga Halla", "beluga Halluga"))
+    }
+
     @Test func fixesSurviveARestart() throws {
         defer { try? FileManager.default.removeItem(at: url) }
         let learned = LearnedFixes(url: url)

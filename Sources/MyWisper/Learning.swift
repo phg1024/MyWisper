@@ -12,6 +12,14 @@ struct LearnedFix: Codable, Identifiable, Hashable {
 
     /// Applied to new dictations without asking the language model.
     var confirmed: Bool { count >= LearnedFixes.confirmAt }
+
+    /// The two sides without the neighbours kept for context: 有铺 → 有push is 铺 → push.
+    var core: (heard: String, meant: String) {
+        var heard = TextDiff.tokens(heard)[...], meant = TextDiff.tokens(meant)[...]
+        while heard.count > 1, meant.count > 1, heard.first == meant.first { heard.removeFirst(); meant.removeFirst() }
+        while heard.count > 1, meant.count > 1, heard.last == meant.last { heard.removeLast(); meant.removeLast() }
+        return (heard.joined().trimmingCharacters(in: .whitespaces), meant.joined().trimmingCharacters(in: .whitespaces))
+    }
 }
 
 /// Fixes learned from the user's own corrections, in ~/Library/Application Support/MyWisper/learned.json
@@ -95,7 +103,7 @@ final class LearnedFixes: ObservableObject {
     /// Words the user has corrected to, for the corrector's vocabulary.
     var terms: [String] {
         var seen = Set<String>()
-        return fixes.sorted { $0.count > $1.count }.map(\.meant).filter { seen.insert($0).inserted }
+        return fixes.sorted { $0.count > $1.count }.map(\.core.meant).filter { seen.insert($0).inserted }
     }
 
     /// Words the corrector must leave where they are: the user's vocabulary and what they corrected to,
@@ -103,7 +111,7 @@ final class LearnedFixes: ObservableObject {
     func keep(vocabulary: String) -> [String] {
         let words = vocabulary.split(whereSeparator: { ",，、;；\n".contains($0) })
             .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        let changed = Set(fixes.map { $0.heard.lowercased() })
+        let changed = Set(fixes.map { $0.core.heard.lowercased() })
         var seen = Set<String>()
         return (words + terms).filter { !changed.contains($0.lowercased()) && seen.insert($0.lowercased()).inserted }
     }
