@@ -25,14 +25,17 @@ struct TrainingSample: Codable, Identifiable {
 @MainActor
 final class TrainingData: ObservableObject {
     static let shared = TrainingData()
-    static let limit = 5000
-    static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    static let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("MyWisper/Training")
 
     @Published private(set) var samples: [TrainingSample] = []
-    private var indexURL: URL { Self.directory.appendingPathComponent("samples.json") }
+    let directory: URL
+    let limit: Int
+    private var indexURL: URL { directory.appendingPathComponent("samples.json") }
 
-    init() {
+    init(directory: URL = TrainingData.defaultDirectory, limit: Int = 5000) {
+        self.directory = directory
+        self.limit = limit
         if let data = try? Data(contentsOf: indexURL) {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
@@ -44,9 +47,9 @@ final class TrainingData: ObservableObject {
 
     func add(id: UUID, audio: [Float], recognized: String, text: String, label: TrainingSample.Label) {
         let name = "\(id.uuidString).wav"
-        let url = Self.directory.appendingPathComponent(name)
+        let url = directory.appendingPathComponent(name)
         do {
-            try FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true,
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                     attributes: [.posixPermissions: 0o700])
             try AudioFile.wav(audio).write(to: url, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
@@ -58,7 +61,7 @@ final class TrainingData: ObservableObject {
                                       duration: Double(audio.count) / Double(ASREngine.sampleRate),
                                       recognized: recognized, text: text, label: label))
         // Over the limit: the oldest samples the user never confirmed go first.
-        while samples.count > Self.limit, let i = samples.firstIndex(where: { $0.label != .edited }) ?? samples.indices.first {
+        while samples.count > limit, let i = samples.firstIndex(where: { $0.label != .edited }) ?? samples.indices.first {
             removeFile(samples.remove(at: i))
         }
         save()
@@ -85,7 +88,7 @@ final class TrainingData: ObservableObject {
     }
 
     private func removeFile(_ sample: TrainingSample) {
-        try? FileManager.default.removeItem(at: Self.directory.appendingPathComponent(sample.audio))
+        try? FileManager.default.removeItem(at: directory.appendingPathComponent(sample.audio))
     }
 
     private func save() {
@@ -93,7 +96,7 @@ final class TrainingData: ObservableObject {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(samples) else { return }
-        try? FileManager.default.createDirectory(at: Self.directory, withIntermediateDirectories: true,
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                  attributes: [.posixPermissions: 0o700])
         try? data.write(to: indexURL, options: .atomic)
         try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: indexURL.path)

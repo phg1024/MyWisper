@@ -130,9 +130,9 @@ private struct GeneralSettings: View {
                     LabeledContent(t("已有 \(training.samples.count) 段，\(Int(training.totalDuration / 60)) 分钟", "\(training.samples.count) recordings, \(Int(training.totalDuration / 60)) min")) {
                         HStack {
                             Button(t("在访达中显示", "Show in Finder")) {
-                                try? FileManager.default.createDirectory(at: TrainingData.directory, withIntermediateDirectories: true,
+                                try? FileManager.default.createDirectory(at: training.directory, withIntermediateDirectories: true,
                                                                          attributes: [.posixPermissions: 0o700])
-                                NSWorkspace.shared.activateFileViewerSelecting([TrainingData.directory])
+                                NSWorkspace.shared.activateFileViewerSelecting([training.directory])
                             }
                             Button(t("清空…", "Clear…")) { confirmClearTraining = true }.disabled(training.samples.isEmpty)
                         }
