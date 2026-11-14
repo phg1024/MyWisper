@@ -31,6 +31,11 @@ let package = Package(
                 .linkedFramework("MetalKit"),
             ]
         ),
+        .testTarget(
+            name: "MyWisperTests",
+            dependencies: ["MyWisper"],
+            path: "Tests/MyWisperTests"
+        ),
     ],
     swiftLanguageModes: [.v5]
 )
